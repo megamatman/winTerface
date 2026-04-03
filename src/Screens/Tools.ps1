@@ -34,14 +34,14 @@ function Build-ToolsScreen {
     $leftFrame = [Terminal.Gui.FrameView]::new("Tools")
     $leftFrame.X = 0; $leftFrame.Y = 2
     $leftFrame.Width  = [Terminal.Gui.Dim]::Percent(45)
-    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(4)
+    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(8)
     if ($script:Colors.Base) { $leftFrame.ColorScheme = $script:Colors.Base }
 
     # --- Right panel: detail ---
     $rightFrame = [Terminal.Gui.FrameView]::new("Detail")
     $rightFrame.X = [Terminal.Gui.Pos]::Percent(45); $rightFrame.Y = 2
     $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
-    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(4)
+    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(8)
     if ($script:Colors.Base) { $rightFrame.ColorScheme = $script:Colors.Base }
 
     $detailView = [Terminal.Gui.TextView]::new()
@@ -217,8 +217,8 @@ function Update-ToolDetail {
 function Add-ToolsOutputPane {
     param($Container)
     $frame = [Terminal.Gui.FrameView]::new("Output")
-    $frame.X = 0; $frame.Y = [Terminal.Gui.Pos]::AnchorEnd(4)
-    $frame.Width = [Terminal.Gui.Dim]::Fill(); $frame.Height = 3
+    $frame.X = 0; $frame.Y = [Terminal.Gui.Pos]::AnchorEnd(8)
+    $frame.Width = [Terminal.Gui.Dim]::Fill(); $frame.Height = 7
     if ($script:Colors.Base) { $frame.ColorScheme = $script:Colors.Base }
 
     $tv = [Terminal.Gui.TextView]::new()
@@ -235,7 +235,7 @@ function Add-ToolsOutputPane {
 function Add-ToolsHints {
     param($Container)
     $hints = [Terminal.Gui.Label]::new(
-        "  [A] Add  [I] Install  [U] Update  [X] Remove  [O] Open  [F5] Refresh  [Esc] Back")
+        "  [A] Add tool  [I] Install  [U] Update  [X] Remove  [O] Open location  [F5] Scan  [Esc] Back")
     $hints.X = 0; $hints.Y = [Terminal.Gui.Pos]::AnchorEnd(1)
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
@@ -252,6 +252,10 @@ function Add-ToolsOutput {
     if ($script:ToolsOutputView) {
         try {
             $script:ToolsOutputView.Text = $script:ToolsOutputText
+            # Auto-scroll to bottom
+            $lineCount    = ($script:ToolsOutputText -split "`n").Count
+            $visibleLines = $script:ToolsOutputView.Frame.Height
+            $script:ToolsOutputView.TopRow = [Math]::Max(0, $lineCount - $visibleLines)
             $script:ToolsOutputView.SetNeedsDisplay()
         } catch {}
     }
