@@ -374,7 +374,13 @@ function Invoke-BackgroundPoll {
 
         $jobState = try { $job.State } catch { 'Failed' }
         if ($jobState -ne 'Running') {
-            $exitMsg = if ($jobState -eq 'Completed') { 'Done' } else { "Finished ($jobState)" }
+            # Check for errors in the job -- 'Completed' only means the process
+            # exited, not that it succeeded.
+            $hasErrors = $false
+            try { $hasErrors = $job.ChildJobs[0].Error.Count -gt 0 } catch {}
+            $exitMsg = if ($jobState -eq 'Failed') { 'Failed' }
+                       elseif ($hasErrors) { 'Completed with errors' }
+                       else { 'Done' }
             Add-ToolsOutput -Text "--- $exitMsg ---"
             try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
             $script:ToolActionJob = $null
