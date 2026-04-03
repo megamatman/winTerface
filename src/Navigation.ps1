@@ -94,10 +94,14 @@ function Register-CommandBarHandlers {
     #>
     $cmdInput = $script:Layout.CommandInput
 
-    # --- Text changed: update autocomplete overlay ---
+    # --- Text changed: update autocomplete overlay and reset tab cycle ---
     $cmdInput.add_TextChanged({
         param($oldText)
         $text = $script:Layout.CommandInput.Text.ToString()
+
+        # Any text change resets the tab completion cycle so the next Tab
+        # starts a fresh match from the new input.
+        Reset-TabCompletion
 
         if ($text.StartsWith('/') -and $text.Length -gt 1) {
             $searchTerm = $text.Substring(1)
@@ -148,18 +152,30 @@ function Register-CommandBarHandlers {
             return
         }
 
-        # Tab -- fill the command bar with the selected suggestion
+        # Tab -- accept highlighted overlay item, or cycle through prefix matches.
+        # Always suppress default Tab behaviour (focus change).
         if ($key -eq [Terminal.Gui.Key]::Tab) {
+            $completed = $null
+
+            # If the overlay is open and an item is highlighted, accept it
             if ($script:Layout.AutocompleteList -and
                 $script:AutocompleteSuggestions.Count -gt 0) {
                 $idx = $script:Layout.AutocompleteList.SelectedItem
                 if ($idx -ge 0 -and $idx -lt $script:AutocompleteSuggestions.Count) {
-                    $cmd = $script:AutocompleteSuggestions[$idx].Command
-                    $script:Layout.CommandInput.Text = $cmd
-                    $script:Layout.CommandInput.CursorPosition = $cmd.Length
+                    $completed = $script:AutocompleteSuggestions[$idx].Command
                 }
-                Hide-AutocompleteOverlay
             }
+
+            # Otherwise use the cycling tab completion
+            if (-not $completed) {
+                $completed = Get-TabCompletion -Input $script:Layout.CommandInput.Text.ToString()
+            }
+
+            if ($completed) {
+                $script:Layout.CommandInput.Text = $completed
+                $script:Layout.CommandInput.CursorPosition = $completed.Length
+            }
+
             $e.Handled = $true
             return
         }

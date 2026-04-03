@@ -12,6 +12,73 @@ $script:SlashCommands = @(
     @{ Command = '/quit';               Description = 'Exit winTerface';                    Screen = $null;     Action = 'Quit' }
 )
 
+# Tab completion cycling state
+$script:TabCompletion = @{
+    LastInput = ''       # normalised input when Tab was last pressed
+    Matches   = @()      # command names matching LastInput (sorted)
+    Index     = 0        # current position in Matches
+}
+
+function Get-TabCompletion {
+    <#
+    .SYNOPSIS
+        Returns the next tab completion candidate for the current input.
+    .DESCRIPTION
+        On first press, builds a sorted list of commands whose names start
+        with the typed prefix. On repeated presses with the same input,
+        cycles through the list. Typing a new character resets the cycle
+        via Reset-TabCompletion.
+    .PARAMETER Input
+        The current text in the command bar including the leading slash.
+    .OUTPUTS
+        [string] The completed command string, or $null if no match.
+    #>
+    param([string]$Input)
+
+    $normalised = $Input.ToLower().TrimEnd()
+
+    # If input changed since last Tab, rebuild the match list
+    if ($normalised -ne $script:TabCompletion.LastInput) {
+        $script:TabCompletion.LastInput = $normalised
+        $script:TabCompletion.Index     = 0
+
+        if ($normalised -eq '' -or $normalised -eq '/') {
+            # Show all commands
+            $script:TabCompletion.Matches = @(
+                $script:SlashCommands | ForEach-Object { $_.Command.TrimStart('/') } | Sort-Object
+            )
+        } else {
+            # Match commands that start with the typed prefix
+            $prefix = $normalised.TrimStart('/')
+            $script:TabCompletion.Matches = @(
+                $script:SlashCommands |
+                    ForEach-Object { $_.Command.TrimStart('/') } |
+                    Where-Object { $_.StartsWith($prefix) } |
+                    Sort-Object
+            )
+        }
+
+        if ($script:TabCompletion.Matches.Count -eq 0) { return $null }
+    } else {
+        # Same input -- advance the cycle index
+        $script:TabCompletion.Index =
+            ($script:TabCompletion.Index + 1) % $script:TabCompletion.Matches.Count
+    }
+
+    return "/$($script:TabCompletion.Matches[$script:TabCompletion.Index])"
+}
+
+function Reset-TabCompletion {
+    <#
+    .SYNOPSIS
+        Resets the tab completion cycle. Called on every text change so that
+        typing a character after a Tab completion starts a fresh match.
+    #>
+    $script:TabCompletion.LastInput = ''
+    $script:TabCompletion.Matches  = @()
+    $script:TabCompletion.Index    = 0
+}
+
 function Get-AllSlashCommands {
     <#
     .SYNOPSIS
