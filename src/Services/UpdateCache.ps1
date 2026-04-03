@@ -258,10 +258,14 @@ function Update-BackgroundCheckStatus {
     $job = $script:UpdateCheckJob
 
     if ($job.State -eq 'Completed') {
+        $updateCount = 0
         try {
             $result = Receive-Job $job -ErrorAction Stop
             if ($result -and $result.lastChecked) {
                 Set-UpdateCache -Data $result
+                $updateCount = @($result.updates | Where-Object {
+                    $_.availableVersion -and $_.availableVersion -ne ''
+                }).Count
             }
         }
         catch {
@@ -272,6 +276,15 @@ function Update-BackgroundCheckStatus {
             $script:UpdateCheckJob   = $null
             $script:UpdateCheckState = 'Idle'
         }
+
+        # Write completion message to the updates output pane
+        $msg = if ($updateCount -gt 0) {
+            $noun = if ($updateCount -eq 1) { 'update' } else { 'updates' }
+            "Check complete -- $updateCount $noun available."
+        } else {
+            "Check complete -- all tools are up to date."
+        }
+        try { Add-UpdateOutput -Text $msg } catch {}
 
         # Refresh whichever screen is visible
         if ($script:CurrentScreen -eq 'Home') {
