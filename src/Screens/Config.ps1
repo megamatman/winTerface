@@ -146,7 +146,7 @@ function Build-ConfigScreen {
 
     # --- Hints ---
     $hints = [Terminal.Gui.Label]::new(
-        "  [E] Edit  [S] Save  [V] Verify  [C] Clear cache  [R] Refresh  [F5] Reload tools  [Esc] Back")
+        "  [E] Edit  [S] Save  [V] Verify  [C] Clear cache  [R] Refresh  [T] Open Tools screen  [Esc] Back")
     $hints.X = 0; $hints.Y = [Terminal.Gui.Pos]::AnchorEnd(1)
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
