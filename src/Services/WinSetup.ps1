@@ -136,11 +136,11 @@ function Get-PythonVersion {
 function Get-ProfileHealthStatus {
     <#
     .SYNOPSIS
-        Checks profile health by looking for winSetup's Test-ProfileHealth function.
+        Lightweight profile health check using pattern matching.
     .DESCRIPTION
-        Attempts to call Test-ProfileHealth if it is available in the current session.
-        Returns a degraded status if winSetup is not configured or the function is
-        not loaded.
+        Reads $PROFILE and checks the expected section patterns directly.
+        Does NOT call Test-ProfileHealth (that function uses Write-Host
+        which corrupts Terminal.Gui rendering).
     .OUTPUTS
         [hashtable] @{ Status = 'Ok'|'Warn'|'Error'; Message = string }
     #>
@@ -148,15 +148,21 @@ function Get-ProfileHealthStatus {
         return @{ Status = 'Warn'; Message = 'winSetup not configured' }
     }
 
+    if (-not (Test-Path $PROFILE)) {
+        return @{ Status = 'Error'; Message = 'No profile found' }
+    }
+
     try {
-        if (Get-Command 'Test-ProfileHealth' -ErrorAction SilentlyContinue) {
-            $result = Test-ProfileHealth 2>$null
-            if ($result) {
-                return @{ Status = 'Ok'; Message = 'Healthy' }
-            }
-            return @{ Status = 'Warn'; Message = 'Issues detected' }
+        $content = Get-Content -Path $PROFILE -Raw -ErrorAction Stop
+        $missing = 0
+        foreach ($section in $script:ExpectedProfileSections.GetEnumerator()) {
+            if ($content -notmatch $section.Value) { $missing++ }
         }
-        return @{ Status = 'Warn'; Message = 'Run profile check' }
+
+        if ($missing -eq 0) {
+            return @{ Status = 'Ok'; Message = 'Healthy' }
+        }
+        return @{ Status = 'Warn'; Message = "$missing sections missing" }
     }
     catch {
         return @{ Status = 'Error'; Message = 'Check failed' }
