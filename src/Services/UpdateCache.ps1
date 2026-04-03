@@ -163,7 +163,7 @@ function Get-AvailableUpdateCount {
     }
 
     $cache = Get-UpdateCache
-    if (-not $cache -or -not $cache.updates) {
+    if (-not $cache -or $null -eq $cache.updates) {
         return @{ Status = 'Unknown'; Count = 0; Message = 'Run /check-for-updates' }
     }
 
