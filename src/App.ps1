@@ -231,6 +231,57 @@ function Show-HelpOverlay {
 }
 
 # ---------------------------------------------------------------------------
+# Background polling (called every 500 ms by the main-loop timer)
+# ---------------------------------------------------------------------------
+
+function Invoke-BackgroundPoll {
+    <#
+    .SYNOPSIS
+        Polls all active background jobs.  Called by the 500 ms timer callback.
+    .DESCRIPTION
+        1. Polls the update-check job (Start-BackgroundUpdateCheck).
+        2. Polls the update-run job (Invoke-WinSetupUpdate) and streams its
+           output into the Updates screen output pane.
+    #>
+
+    # 1 -- update check job
+    Update-BackgroundCheckStatus
+
+    # 2 -- update run job
+    if ($script:UpdateRunJob) {
+        $job = $script:UpdateRunJob
+
+        # Receive incremental output
+        try {
+            $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+            foreach ($line in $newOutput) {
+                if ($null -ne $line) {
+                    Append-UpdateOutput -Text "$line"
+                }
+            }
+        }
+        catch {}
+
+        # Detect completion
+        if ($job.State -ne 'Running') {
+            $duration    = (Get-Date) - $script:UpdateRunStartTime
+            $durationStr = '{0:mm\:ss}' -f $duration
+            $exitMsg     = if ($job.State -eq 'Completed') { 'succeeded' } else { "finished ($($job.State))" }
+
+            Append-UpdateOutput -Text ''
+            Append-UpdateOutput -Text "--- Update $exitMsg  ($durationStr) ---"
+
+            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+            $script:UpdateRunJob       = $null
+            $script:UpdateRunStartTime = $null
+
+            # Refresh the update cache so the status panel picks up new state
+            Start-BackgroundUpdateCheck -Force
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Application lifecycle
 # ---------------------------------------------------------------------------
 
@@ -285,6 +336,21 @@ function Start-WinTerface {
 
         # Step 5 - show Home and run
         Switch-Screen -ScreenName 'Home'
+
+        # Step 5b - trigger background update check if cache is stale
+        if (Test-UpdateCheckNeeded) {
+            Start-BackgroundUpdateCheck
+        }
+
+        # Step 5c - 500 ms timer for polling background jobs
+        $null = [Terminal.Gui.Application]::MainLoop.AddTimeout(
+            [TimeSpan]::FromMilliseconds(500),
+            [Func[Terminal.Gui.MainLoop, bool]]{
+                param([Terminal.Gui.MainLoop]$ml)
+                Invoke-BackgroundPoll
+                return [bool]$true
+            }
+        )
 
         [Terminal.Gui.Application]::Run()
     }

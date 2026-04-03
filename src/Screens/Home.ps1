@@ -50,7 +50,12 @@ function Build-HomeScreen {
 
     # Updates available
     $updateInfo  = Get-AvailableUpdateCount
-    $updState    = switch ($updateInfo.Status) { 'UpToDate' { 'Ok' } default { 'Warn' } }
+    $updState = switch ($updateInfo.Status) {
+        'UpToDate'  { 'Ok' }
+        'Available' { 'Warn' }
+        'Checking'  { 'Warn' }
+        default     { 'Warn' }
+    }
     $updLabel    = New-StatusLabel `
         -Text "  $bullet Updates available       $($updateInfo.Message)" `
         -Status $updState -X 0 -Y 3

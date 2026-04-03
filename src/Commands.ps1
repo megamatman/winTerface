@@ -159,7 +159,10 @@ function Invoke-SlashCommand {
         switch ($matched.Action) {
             'Quit'         { Request-ApplicationExit }
             'Help'         { Show-HelpOverlay }
-            'CheckUpdates' { Switch-Screen -ScreenName 'Updates' }
+            'CheckUpdates' {
+                Start-BackgroundUpdateCheck -Force
+                Switch-Screen -ScreenName 'Updates'
+            }
         }
     }
     elseif ($matched.Screen) {

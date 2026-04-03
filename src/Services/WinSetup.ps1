@@ -1,5 +1,12 @@
 # WinSetup.ps1 - Interface to winSetup scripts and functions
 
+$script:UpdateRunJob       = $null
+$script:UpdateRunStartTime = $null
+
+# ---------------------------------------------------------------------------
+# Path and status helpers
+# ---------------------------------------------------------------------------
+
 function Test-WinSetupPath {
     <#
     .SYNOPSIS
@@ -60,6 +67,10 @@ function Get-PythonVersion {
     return 'N/A'
 }
 
+# ---------------------------------------------------------------------------
+# Profile health
+# ---------------------------------------------------------------------------
+
 function Get-ProfileHealthStatus {
     <#
     .SYNOPSIS
@@ -109,4 +120,83 @@ function Get-DevEnvironmentInfo {
     catch {}
 
     return @{ Status = 'Unavailable'; Data = $null }
+}
+
+# ---------------------------------------------------------------------------
+# Update execution
+# ---------------------------------------------------------------------------
+
+function Show-ElevationWarning {
+    <#
+    .SYNOPSIS
+        Shows a modal warning dialog about missing Administrator privileges.
+    .OUTPUTS
+        [bool] True if the user chose to continue, false if cancelled.
+    #>
+    $script:_ElevWarningResult = $false
+
+    $continueBtn = [Terminal.Gui.Button]::new("_Continue anyway")
+    $cancelBtn   = [Terminal.Gui.Button]::new("Ca_ncel")
+
+    $dialog = [Terminal.Gui.Dialog]::new(
+        "Not running as Administrator",
+        56, 11,
+        [Terminal.Gui.Button[]]@($continueBtn, $cancelBtn)
+    )
+
+    $warn = [Terminal.Gui.Label]::new(
+        " Chocolatey updates require elevation.`n" +
+        " Without it, choco packages will be skipped."
+    )
+    $warn.X = 1; $warn.Y = 1
+    $warn.Width = [Terminal.Gui.Dim]::Fill(1)
+    $warn.Height = 3
+    $dialog.Add($warn)
+
+    $continueBtn.add_Clicked({
+        $script:_ElevWarningResult = $true
+        [Terminal.Gui.Application]::RequestStop()
+    })
+    $cancelBtn.add_Clicked({
+        [Terminal.Gui.Application]::RequestStop()
+    })
+
+    [Terminal.Gui.Application]::Run($dialog)
+    return $script:_ElevWarningResult
+}
+
+function Invoke-WinSetupUpdate {
+    <#
+    .SYNOPSIS
+        Starts Update-DevEnvironment.ps1 from winSetup as a background job.
+    .DESCRIPTION
+        1. Checks elevation and shows a warning dialog if not elevated.
+        2. Validates the winSetup path and script existence.
+        3. Starts the update script in a background job.
+        Returns immediately; output is polled by the 500 ms timer.
+    .OUTPUTS
+        [bool] True if the job was started, false if cancelled or missing.
+    #>
+
+    # Already running?
+    if ($script:UpdateRunJob) { return $false }
+
+    # Elevation check
+    if (-not (Test-IsElevated)) {
+        if (-not (Show-ElevationWarning)) { return $false }
+    }
+
+    # Validate path
+    if (-not (Test-WinSetupPath)) { return $false }
+    $updateScript = Join-Path $env:WINSETUP 'Update-DevEnvironment.ps1'
+    if (-not (Test-Path $updateScript)) { return $false }
+
+    # Launch the job
+    $script:UpdateRunJob       = Start-Job -ScriptBlock {
+        param($scriptPath)
+        & $scriptPath 2>&1
+    } -ArgumentList $updateScript
+    $script:UpdateRunStartTime = Get-Date
+
+    return $true
 }
