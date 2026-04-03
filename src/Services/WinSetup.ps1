@@ -43,6 +43,32 @@ $script:ExpectedProfileSections = [ordered]@{
     'Show-DevEnvironment' = 'function Show-DevEnvironment'
 }
 
+# Human-readable description of what each section does (shown in detail panel)
+$script:ProfileDescriptions = @{
+    'SSH Agent'           = 'Starts the SSH agent and loads your key automatically when a terminal opens.'
+    'Chocolatey'          = 'Imports the Chocolatey profile so tab completion works for choco commands.'
+    'winSetup'            = 'Sets the $env:WINSETUP variable so other profile sections can find winSetup.'
+    'Python Tools'        = 'Auto-checks and installs Python dev tools (pylint, ruff, mypy, etc.) periodically.'
+    'fzf'                 = 'Configures fzf defaults: reverse layout, inline info, and 80% height.'
+    'PSFzf'               = 'Imports PSFzf for Ctrl+T (file finder) and Ctrl+R (history search) bindings.'
+    'PSReadLine'          = 'Enables predictive autosuggestions and dropdown menu completion in the prompt.'
+    'zoxide'              = 'Initialises zoxide so the z command can jump to frequently used directories.'
+    'zoxide OMP fix'      = 'Patches the zoxide prompt hook to work alongside Oh My Posh.'
+    'pyenv-win'           = 'Adds pyenv-win to PATH so pyenv commands are available.'
+    'lazygit alias'       = 'Creates the lg alias as a shorthand for lazygit.'
+    'delta'               = 'Sets delta environment variables for side-by-side git diff display.'
+    'bat alias'           = 'Aliases cat to bat for syntax-highlighted file viewing.'
+    'Ctrl+F binding'      = 'Binds Ctrl+F to an fzf file picker with bat preview.'
+    'Git aliases'         = 'Defines shorthand functions: gs (status), ga (add), gc (commit), gp (push), gl (log).'
+    'gl alias fix'        = "Removes PowerShell's built-in gl alias so the git log function works."
+    'gc alias fix'        = "Removes PowerShell's built-in gc alias so the git commit function works."
+    'Oh My Posh'          = 'Initialises Oh My Posh with the gruvbox theme for a customised prompt.'
+    'Test-ProfileHealth'  = 'Makes the Test-ProfileHealth command available to check profile completeness.'
+    'Invoke-DevSetup'     = 'Makes the Invoke-DevSetup convenience command available.'
+    'Invoke-DevUpdate'    = 'Makes the Invoke-DevUpdate convenience command available.'
+    'Show-DevEnvironment' = 'Makes the Show-DevEnvironment command available to display environment status.'
+}
+
 # Human-readable suggestion for each missing section
 $script:ProfileSuggestions = @{
     'SSH Agent'           = 'SSH agent auto-start block is missing. It loads your key on terminal open.'

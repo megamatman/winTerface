@@ -217,25 +217,23 @@ function Update-ProfileDetail {
     }
 
     $item = $script:ProfileHealthData[$Index]
-    $lines = @()
+    $desc = $script:ProfileDescriptions[$item.Section]
+    if (-not $desc) { $desc = $item.Section }
 
-    $lines += "Expected pattern:"
-    $lines += "  $($item.Pattern)"
+    $lines = @()
+    $lines += "$($item.Section)"
+    $lines += ""
+    $lines += "$desc"
     $lines += ""
 
     if ($item.Status -eq 'Pass') {
-        $lines += "Found in profile: Yes"
-        $lines += ""
-        $lines += "No action required."
+        $lines += "Status: Present"
     } else {
-        $lines += "Found in profile: No"
+        $lines += "Status: Missing"
         $lines += ""
-        $lines += "Suggestion:"
-        $lines += "  $($item.Suggestion)"
+        $lines += "$($item.Suggestion)"
         $lines += ""
-        $lines += "Actions:"
-        $lines += "  [R] Redeploy full profile"
-        $lines += "  [O] Open profile.ps1 in VS Code"
+        $lines += "[R] Redeploy profile   [O] Open in VS Code"
     }
 
     $script:ProfileDetailView.Text = ($lines -join "`n")
