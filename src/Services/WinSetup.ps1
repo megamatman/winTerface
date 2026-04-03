@@ -153,6 +153,9 @@ function Get-ProfileHealthStatus {
     }
 
     try {
+        if (-not $script:ExpectedProfileSections) {
+            return @{ Status = 'Warn'; Message = 'Run profile check' }
+        }
         $content = Get-Content -Path $PROFILE -Raw -ErrorAction Stop
         $missing = 0
         foreach ($section in $script:ExpectedProfileSections.GetEnumerator()) {

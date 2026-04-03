@@ -239,10 +239,10 @@ function Invoke-BackgroundPoll {
     .SYNOPSIS
         Polls all active background jobs.  Called by the 500 ms timer callback.
     .DESCRIPTION
-        1. Polls the update-check job (Start-BackgroundUpdateCheck).
-        2. Polls the update-run job (Invoke-WinSetupUpdate) and streams its
-           output into the Updates screen output pane.
+        Wrapped in try/catch so that an unhandled exception inside any poll
+        section can never crash Terminal.Gui's main loop.
     #>
+    try {
 
     # 1 -- update check job
     Update-BackgroundCheckStatus
@@ -262,18 +262,25 @@ function Invoke-BackgroundPoll {
         }
         catch {}
 
-        # Detect completion
-        if ($job.State -ne 'Running') {
+        # Detect completion -- capture state before removing the job
+        $jobState = try { $job.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
             try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
             $script:UpdateRunJob       = $null
             $script:UpdateRunStartTime = $null
 
             if ($script:IsQueuedUpdate) {
                 # Record per-tool result and advance the queue
-                $currentPkg = $script:UpdatePackageQueue[$script:UpdatePackageIndex]
-                $status = if ($job.State -eq 'Completed') { 'success' } else { 'failed' }
-                $script:UpdatePackageResults[$currentPkg.name] = $status
-                Update-UpdateListItemStatus -Name $currentPkg.name -Status $status
+                $currentPkg = if ($script:UpdatePackageIndex -ge 0 -and
+                    $script:UpdatePackageIndex -lt $script:UpdatePackageQueue.Count) {
+                    $script:UpdatePackageQueue[$script:UpdatePackageIndex]
+                } else { $null }
+
+                if ($currentPkg) {
+                    $status = if ($jobState -eq 'Completed') { 'success' } else { 'failed' }
+                    $script:UpdatePackageResults[$currentPkg.name] = $status
+                    Update-UpdateListItemStatus -Name $currentPkg.name -Status $status
+                }
 
                 $script:UpdatePackageIndex++
                 if ($script:UpdatePackageIndex -lt $script:UpdatePackageQueue.Count) {
@@ -283,7 +290,7 @@ function Invoke-BackgroundPoll {
                 }
             } else {
                 # Full update completed
-                $exitMsg = if ($job.State -eq 'Completed') { 'succeeded' } else { "finished ($($job.State))" }
+                $exitMsg = if ($jobState -eq 'Completed') { 'succeeded' } else { "finished ($jobState)" }
                 Append-UpdateOutput -Text ''
                 Append-UpdateOutput -Text "--- Update $exitMsg ---"
                 Start-BackgroundUpdateCheck -Force
@@ -314,21 +321,27 @@ function Invoke-BackgroundPoll {
         }
         catch {}
 
-        if ($job.State -ne 'Running') {
+        $jobState = try { $job.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
             $script:ProfileRedeployOutput += "`n--- Redeploy complete ---`n"
             if ($script:ProfileDetailView -and $script:CurrentScreen -eq 'Profile') {
-                $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
-                $script:ProfileDetailView.SetNeedsDisplay()
+                try {
+                    $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
+                    $script:ProfileDetailView.SetNeedsDisplay()
+                } catch {}
             }
 
             try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
             $script:ProfileRedeployJob = $null
 
-            # Refresh the profile screen to pick up new health/drift status
             if ($script:CurrentScreen -eq 'Profile') {
                 Switch-Screen -ScreenName 'Profile'
             }
         }
+    }
+
+    } catch {
+        # Swallow -- the timer callback must never crash Terminal.Gui
     }
 }
 
