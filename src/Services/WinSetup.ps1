@@ -561,3 +561,179 @@ function Open-FileDiffInVSCode {
     }
     catch { return $false }
 }
+
+# ---------------------------------------------------------------------------
+# Config management -- tool inventory, path update, cache operations
+# ---------------------------------------------------------------------------
+
+# Tool descriptions for the config screen inventory panel.
+# Same pattern as $script:ProfileDescriptions.
+$script:KnownTools = @(
+    @{ Name = 'Chocolatey';   Command = 'choco';        Manager = 'bootstrap'; Desc = 'Package manager for Windows.' }
+    @{ Name = 'VS Code';      Command = 'code';         Manager = 'choco';     Desc = 'Code editor.' }
+    @{ Name = 'Python';       Command = 'python';       Manager = 'choco';     Desc = 'Python programming language.' }
+    @{ Name = 'Git';          Command = 'git';          Manager = 'choco';     Desc = 'Version control system.' }
+    @{ Name = 'Oh My Posh';   Command = 'oh-my-posh';  Manager = 'winget';    Desc = 'Prompt theme engine.' }
+    @{ Name = 'GitHub CLI';   Command = 'gh';           Manager = 'winget';    Desc = 'GitHub from the command line.' }
+    @{ Name = 'fzf';          Command = 'fzf';          Manager = 'winget';    Desc = 'Fuzzy finder.' }
+    @{ Name = 'ripgrep';      Command = 'rg';           Manager = 'choco';     Desc = 'Fast recursive search tool.' }
+    @{ Name = 'bat';          Command = 'bat';          Manager = 'choco';     Desc = 'Syntax-highlighted cat replacement.' }
+    @{ Name = 'delta';        Command = 'delta';        Manager = 'choco';     Desc = 'Git diff viewer.' }
+    @{ Name = 'lazygit';      Command = 'lazygit';      Manager = 'choco';     Desc = 'Terminal UI for git.' }
+    @{ Name = 'zoxide';       Command = 'zoxide';       Manager = 'choco';     Desc = 'Smarter cd command.' }
+    @{ Name = 'fd';           Command = 'fd';           Manager = 'choco';     Desc = 'Fast file finder.' }
+    @{ Name = 'pyenv';        Command = 'pyenv';        Manager = 'pyenv';     Desc = 'Python version manager.' }
+    @{ Name = 'pipx';         Command = 'pipx';         Manager = 'pip';       Desc = 'Install Python CLI tools in isolation.' }
+    @{ Name = 'ruff';         Command = 'ruff';         Manager = 'pipx';      Desc = 'Python linter and formatter.' }
+    @{ Name = 'pylint';       Command = 'pylint';       Manager = 'pipx';      Desc = 'Python code analysis.' }
+    @{ Name = 'mypy';         Command = 'mypy';         Manager = 'pipx';      Desc = 'Python static type checker.' }
+    @{ Name = 'bandit';       Command = 'bandit';       Manager = 'pipx';      Desc = 'Python security linter.' }
+    @{ Name = 'pre-commit';   Command = 'pre-commit';   Manager = 'pipx';      Desc = 'Git hook manager.' }
+    @{ Name = 'cookiecutter'; Command = 'cookiecutter'; Manager = 'pipx';      Desc = 'Project template tool.' }
+)
+
+$script:ToolInventoryJob  = $null
+$script:ToolInventoryData = $null
+
+function Get-ToolInventory {
+    <#
+    .SYNOPSIS
+        Starts a background job that checks all known tools via Get-Command
+        and --version.  Results are polled by the 500 ms timer.
+    #>
+    if ($script:ToolInventoryJob) { return }
+
+    $tools = $script:KnownTools
+    $script:ToolInventoryData = $null
+
+    $script:ToolInventoryJob = Start-Job -ScriptBlock {
+        param($toolList)
+        $results = @()
+        foreach ($t in $toolList) {
+            $found   = $false
+            $version = 'not found'
+            $path    = ''
+            try {
+                $cmd = Get-Command $t.Command -ErrorAction SilentlyContinue
+                if ($cmd) {
+                    $found = $true
+                    $path  = $cmd.Source
+                    try {
+                        $verOut = & $t.Command --version 2>$null | Select-Object -First 1
+                        if ($verOut -and "$verOut" -match '(\d+\.\d+[\.\d]*)') {
+                            $version = $matches[1]
+                        } elseif ($verOut) {
+                            $version = ("$verOut").Trim().Substring(0,
+                                [Math]::Min(("$verOut").Trim().Length, 30))
+                        } else {
+                            $version = 'installed'
+                        }
+                    } catch { $version = 'installed' }
+                }
+            } catch {}
+
+            $status = if (-not $found) { 'Error' }
+                      elseif ($version -eq 'installed') { 'Warn' }
+                      else { 'Ok' }
+
+            $results += @{
+                Name = $t.Name; Command = $t.Command; Manager = $t.Manager
+                Desc = $t.Desc; Version = $version; Path = $path; Status = $status
+            }
+        }
+        return $results
+    } -ArgumentList @(,$tools)
+}
+
+function Update-WinSetupPath {
+    <#
+    .SYNOPSIS
+        Updates the winSetup path across config.json, User env var, and profile.ps1.
+    .PARAMETER NewPath
+        The new winSetup directory path.
+    .OUTPUTS
+        [hashtable] @{ Success = bool; Error = string }
+    #>
+    param([string]$NewPath)
+
+    if (-not (Test-Path $NewPath)) {
+        return @{ Success = $false; Error = "Path does not exist: $NewPath" }
+    }
+    if (-not (Test-Path (Join-Path $NewPath 'Setup-DevEnvironment.ps1'))) {
+        return @{ Success = $false; Error = "Setup-DevEnvironment.ps1 not found in: $NewPath" }
+    }
+
+    $oldPath = $env:WINSETUP
+
+    try {
+        # 1. Update config.json
+        $config = Get-WinTerfaceConfig
+        $config.winSetupPath = $NewPath
+        Set-WinTerfaceConfig -Config $config
+
+        # 2. Set User environment variable
+        [System.Environment]::SetEnvironmentVariable('WINSETUP', $NewPath, 'User')
+
+        # 3. Update current session
+        $env:WINSETUP = $NewPath
+
+        # 4. Update profile.ps1 fallback path (back up first -- no exceptions)
+        $profilePath = Join-Path $NewPath 'profile.ps1'
+        if ($oldPath -and (Test-Path $profilePath)) {
+            try {
+                $backup = "$profilePath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                Copy-Item $profilePath $backup -ErrorAction Stop
+                $content = Get-Content -Path $profilePath -Raw -ErrorAction Stop
+                if ($content -match [regex]::Escape($oldPath)) {
+                    $updated = $content -replace [regex]::Escape($oldPath), $NewPath
+                    Set-Content -Path $profilePath -Value $updated -Encoding UTF8 -ErrorAction Stop
+                }
+            }
+            catch {
+                return @{ Success = $true; Error = "Config updated but profile.ps1 edit failed: $_" }
+            }
+        }
+
+        return @{ Success = $true; Error = '' }
+    }
+    catch {
+        return @{ Success = $false; Error = "Update failed: $_" }
+    }
+}
+
+function Read-UpdateCacheRaw {
+    <#
+    .SYNOPSIS
+        Reads and returns parsed update-cache.json.
+    .OUTPUTS
+        [hashtable] Cache object. Returns empty structure if file does not exist.
+    #>
+    $cachePath = Join-Path $env:USERPROFILE '.winTerface' 'update-cache.json'
+    if (-not (Test-Path $cachePath)) {
+        return @{ lastChecked = $null; updates = @() }
+    }
+    try {
+        $content = Get-Content -Path $cachePath -Raw -ErrorAction Stop
+        $cache   = $content | ConvertFrom-Json -AsHashtable -ErrorAction Stop
+        if ($null -eq $cache.updates) { $cache.updates = @() }
+        return $cache
+    }
+    catch {
+        return @{ lastChecked = $null; updates = @() }
+    }
+}
+
+function Clear-UpdateCacheFile {
+    <#
+    .SYNOPSIS
+        Deletes update-cache.json so the home screen resets to 'Run /check-for-updates'.
+    .OUTPUTS
+        [bool] True if the file was deleted or already absent.
+    #>
+    $cachePath = Join-Path $env:USERPROFILE '.winTerface' 'update-cache.json'
+    try {
+        if (Test-Path $cachePath) { Remove-Item $cachePath -Force -ErrorAction Stop }
+        return $true
+    }
+    catch { return $false }
+}

@@ -342,6 +342,24 @@ function Invoke-BackgroundPoll {
         }
     }
 
+    # 5 -- tool inventory job (config screen section 2)
+    if ($script:ToolInventoryJob) {
+        $job = $script:ToolInventoryJob
+        $jobState = try { $job.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
+            try {
+                $script:ToolInventoryData = @(Receive-Job $job -ErrorAction Stop)
+            } catch {}
+            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+            $script:ToolInventoryJob = $null
+
+            # Refresh the config screen tools section if visible
+            if ($script:CurrentScreen -eq 'Config' -and $script:ConfigSectionIndex -eq 2) {
+                Update-ConfigDetail -Index 2
+            }
+        }
+    }
+
     } catch {
         # Swallow -- the timer callback must never crash Terminal.Gui
     }
