@@ -61,6 +61,7 @@ function Get-TabCompletion {
         if ($script:TabCompletion.Matches.Count -eq 0) { return $null }
     } else {
         # Same input -- advance the cycle index
+        if ($script:TabCompletion.Matches.Count -eq 0) { return $null }
         $script:TabCompletion.Index =
             ($script:TabCompletion.Index + 1) % $script:TabCompletion.Matches.Count
     }
