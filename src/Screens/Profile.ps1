@@ -126,10 +126,12 @@ function Build-ProfileScreen {
     }
 
     # --- Selection change updates detail ---
+    # Do not reference the local $healthList here -- .NET event scriptblocks
+    # cannot capture function-local variables. Use $script:Layout.MenuList.
     $healthList.add_SelectedItemChanged({
         param($e)
-        $idx = $healthList.SelectedItem
-        Update-ProfileDetail -Index $idx
+        $lv = $script:Layout.MenuList
+        if ($lv) { Update-ProfileDetail -Index $lv.SelectedItem }
     })
 
     # --- Key handlers ---
