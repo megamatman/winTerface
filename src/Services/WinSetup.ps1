@@ -9,6 +9,62 @@ $script:UpdatePackageIndex   = -1
 $script:UpdatePackageResults = @{}
 $script:IsQueuedUpdate       = $false
 
+# Profile management state
+$script:ProfileRedeployJob    = $null
+$script:ProfileRedeployOutput = ''
+
+# Expected profile sections -- mirrors Test-ProfileHealth in winSetup
+$script:ExpectedProfileSections = [ordered]@{
+    'SSH Agent'           = 'ssh-agent'
+    'Chocolatey'          = 'chocolateyProfile'
+    'winSetup'            = 'WINSETUP'
+    'Python Tools'        = 'Setup-PythonTools'
+    'fzf'                 = 'FZF_DEFAULT_COMMAND'
+    'PSFzf'               = 'Import-Module PSFzf'
+    'PSReadLine'          = 'PredictionSource'
+    'zoxide'              = 'zoxide init'
+    'zoxide OMP fix'      = '__zoxide_omp_prompt'
+    'pyenv-win'           = 'PYENV'
+    'lazygit alias'       = 'Set-Alias lg lazygit'
+    'delta'               = 'DELTA_FEATURES'
+    'bat alias'           = 'Set-Alias cat bat'
+    'Ctrl+F binding'      = 'Ctrl\+f'
+    'Git aliases'         = 'function gs'
+    'gl alias fix'        = 'Remove-Alias.*gl'
+    'gc alias fix'        = 'Remove-Alias.*gc'
+    'Oh My Posh'          = 'oh-my-posh init'
+    'Test-ProfileHealth'  = 'function Test-ProfileHealth'
+    'Invoke-DevSetup'     = 'function Invoke-DevSetup'
+    'Invoke-DevUpdate'    = 'function Invoke-DevUpdate'
+    'Show-DevEnvironment' = 'function Show-DevEnvironment'
+}
+
+# Human-readable suggestion for each missing section
+$script:ProfileSuggestions = @{
+    'SSH Agent'           = 'SSH agent auto-start block is missing. It loads your key on terminal open.'
+    'Chocolatey'          = 'Chocolatey profile import is missing. Tab completion for choco will not work.'
+    'winSetup'            = 'winSetup environment variable block is missing. Other profile sections depend on it.'
+    'Python Tools'        = 'Python tools auto-setup function is missing. Periodic tool checks will not run.'
+    'fzf'                 = 'fzf environment configuration is missing. Fzf defaults will be used instead.'
+    'PSFzf'               = 'PSFzf module import is missing. Ctrl+T and Ctrl+R fuzzy bindings will not work.'
+    'PSReadLine'          = 'PSReadLine predictive config is missing. History-based autosuggestions will not appear.'
+    'zoxide'              = 'zoxide initialization is missing. The z command will not be available.'
+    'zoxide OMP fix'      = 'zoxide prompt hook is missing. Without it zoxide will not record directory visits.'
+    'pyenv-win'           = 'pyenv-win PATH setup is missing. pyenv commands will not be found.'
+    'lazygit alias'       = 'lazygit alias is missing. The lg shorthand will not work.'
+    'delta'               = 'delta environment variables are missing. Git diff will not use side-by-side layout.'
+    'bat alias'           = 'bat alias is missing. The cat command will use the default system tool.'
+    'Ctrl+F binding'      = 'Ctrl+F file finder is missing. The fzf file picker shortcut will not work.'
+    'Git aliases'         = 'Git alias functions are missing. gs, ga, gc, gp, gl shortcuts will not work.'
+    'gl alias fix'        = "gl alias removal is missing. PowerShell's built-in gl will shadow the git log function."
+    'gc alias fix'        = "gc alias removal is missing. PowerShell's built-in gc will shadow the git commit function."
+    'Oh My Posh'          = 'Oh My Posh init line is missing. Your prompt will fall back to the default PS prompt.'
+    'Test-ProfileHealth'  = 'Test-ProfileHealth function is missing. Profile health checks will not be available.'
+    'Invoke-DevSetup'     = 'Invoke-DevSetup function is missing. The dev setup convenience command will not work.'
+    'Invoke-DevUpdate'    = 'Invoke-DevUpdate function is missing. The dev update convenience command will not work.'
+    'Show-DevEnvironment' = 'Show-DevEnvironment function is missing. Environment status display will not work.'
+}
+
 # ---------------------------------------------------------------------------
 # Path and status helpers
 # ---------------------------------------------------------------------------
@@ -284,4 +340,178 @@ function Complete-PackageUpdateQueue {
     $script:IsQueuedUpdate       = $false
 
     Start-BackgroundUpdateCheck -Force
+}
+
+# ---------------------------------------------------------------------------
+# Profile management
+# ---------------------------------------------------------------------------
+
+function Get-ProfileHealthResults {
+    <#
+    .SYNOPSIS
+        Checks the deployed $PROFILE against the expected section patterns.
+    .DESCRIPTION
+        Reads $PROFILE and tests each pattern from $script:ExpectedProfileSections.
+        Returns a structured array usable by the Profile screen.
+    .OUTPUTS
+        [hashtable] @{ Sections = array of @{ Section, Status, Pattern, Suggestion }; Error = string|$null }
+    #>
+    $profilePath = $PROFILE
+    if (-not (Test-Path $profilePath)) {
+        return @{ Sections = @(); Error = "No profile found at $profilePath" }
+    }
+
+    try {
+        $content = Get-Content -Path $profilePath -Raw -ErrorAction Stop
+    }
+    catch {
+        return @{ Sections = @(); Error = "Cannot read profile: $_" }
+    }
+
+    $results = @()
+    foreach ($section in $script:ExpectedProfileSections.GetEnumerator()) {
+        $found = $content -match $section.Value
+        $suggestion = $script:ProfileSuggestions[$section.Key]
+        if (-not $suggestion) {
+            $suggestion = 'This section is missing from your deployed profile. Redeploy to restore it.'
+        }
+        $results += @{
+            Section    = $section.Key
+            Status     = if ($found) { 'Pass' } else { 'Fail' }
+            Pattern    = $section.Value
+            Suggestion = $suggestion
+        }
+    }
+
+    return @{ Sections = $results; Error = $null }
+}
+
+function Get-ProfileDriftStatus {
+    <#
+    .SYNOPSIS
+        Compares the deployed $PROFILE against $env:WINSETUP\profile.ps1.
+    .OUTPUTS
+        [hashtable] @{ Status = 'InSync'|'Drifted'|'SourceNotFound'; DiffText = string }
+    #>
+    $deployed = $PROFILE
+    $source   = Join-Path $env:WINSETUP 'profile.ps1'
+
+    if (-not (Test-Path $source)) {
+        return @{ Status = 'SourceNotFound'; DiffText = "Source file not found: $source" }
+    }
+    if (-not (Test-Path $deployed)) {
+        return @{ Status = 'Drifted'; DiffText = "Deployed profile does not exist at $deployed" }
+    }
+
+    try {
+        $deployedRaw = (Get-Content -Path $deployed -Raw -ErrorAction Stop).TrimEnd()
+        $sourceRaw   = (Get-Content -Path $source   -Raw -ErrorAction Stop).TrimEnd()
+    }
+    catch {
+        return @{ Status = 'Drifted'; DiffText = "Error reading files: $_" }
+    }
+
+    if ($deployedRaw -eq $sourceRaw) {
+        return @{ Status = 'InSync'; DiffText = '' }
+    }
+
+    # Build human-readable diff
+    $deployedLines = $deployedRaw -split "`r?`n"
+    $sourceLines   = $sourceRaw   -split "`r?`n"
+
+    $diffs = Compare-Object -ReferenceObject $sourceLines -DifferenceObject $deployedLines
+    $inDeployed = @($diffs | Where-Object { $_.SideIndicator -eq '=>' } | ForEach-Object { $_.InputObject })
+    $inSource   = @($diffs | Where-Object { $_.SideIndicator -eq '<=' } | ForEach-Object { $_.InputObject })
+
+    $lines = @()
+    $sep = [string]::new([char]0x2500, 56)
+    $lines += "$sep"
+    $lines += " Comparing deployed `$PROFILE vs `$env:WINSETUP\profile.ps1"
+    $lines += "$sep"
+    $lines += ''
+
+    if ($inDeployed.Count -gt 0) {
+        $lines += "Lines only in deployed profile (not in source):"
+        foreach ($l in $inDeployed) {
+            if (-not [string]::IsNullOrWhiteSpace($l)) { $lines += "  $l" }
+        }
+        $lines += ''
+    }
+
+    if ($inSource.Count -gt 0) {
+        $lines += "Lines only in source (not in deployed profile):"
+        foreach ($l in $inSource) {
+            if (-not [string]::IsNullOrWhiteSpace($l)) { $lines += "  $l" }
+        }
+    }
+
+    return @{ Status = 'Drifted'; DiffText = ($lines -join "`n") }
+}
+
+function Invoke-ProfileRedeploy {
+    <#
+    .SYNOPSIS
+        Runs Apply-PowerShellProfile.ps1 from winSetup as a background job.
+    .DESCRIPTION
+        Starts the script which copies profile.ps1 to $PROFILE with a backup.
+        The timer polls the job and streams output.
+    .OUTPUTS
+        [bool] True if the job was started.
+    #>
+    if ($script:ProfileRedeployJob) { return $false }
+
+    $applyScript = Join-Path $env:WINSETUP 'Apply-PowerShellProfile.ps1'
+    if (-not (Test-Path $applyScript)) { return $false }
+
+    $script:ProfileRedeployOutput = ''
+    $script:ProfileRedeployJob = Start-Job -ScriptBlock {
+        param($scriptPath)
+        & $scriptPath 2>&1
+    } -ArgumentList $applyScript
+
+    return $true
+}
+
+function Open-FileInVSCode {
+    <#
+    .SYNOPSIS
+        Opens a file in VS Code.
+    .PARAMETER Path
+        The file path to open.
+    .OUTPUTS
+        [bool] True if VS Code was launched.
+    #>
+    param([string]$Path)
+
+    if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+    try {
+        & code $Path 2>$null
+        return $true
+    }
+    catch { return $false }
+}
+
+function Open-FileDiffInVSCode {
+    <#
+    .SYNOPSIS
+        Opens two files in VS Code diff view.
+    .PARAMETER PathA
+        Left-side file.
+    .PARAMETER PathB
+        Right-side file.
+    .OUTPUTS
+        [bool] True if VS Code was launched.
+    #>
+    param([string]$PathA, [string]$PathB)
+
+    if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+    try {
+        & code --diff $PathA $PathB 2>$null
+        return $true
+    }
+    catch { return $false }
 }

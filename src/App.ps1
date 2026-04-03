@@ -295,6 +295,41 @@ function Invoke-BackgroundPoll {
     if ($script:ChocoSearchJob -or $script:WingetSearchJob) {
         Update-SearchJobStatus
     }
+
+    # 4 -- profile redeploy job
+    if ($script:ProfileRedeployJob) {
+        $job = $script:ProfileRedeployJob
+
+        try {
+            $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+            foreach ($line in $newOutput) {
+                if ($null -ne $line) {
+                    $script:ProfileRedeployOutput += "$line`n"
+                }
+            }
+            if ($script:ProfileDetailView -and $script:CurrentScreen -eq 'Profile') {
+                $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
+                $script:ProfileDetailView.SetNeedsDisplay()
+            }
+        }
+        catch {}
+
+        if ($job.State -ne 'Running') {
+            $script:ProfileRedeployOutput += "`n--- Redeploy complete ---`n"
+            if ($script:ProfileDetailView -and $script:CurrentScreen -eq 'Profile') {
+                $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
+                $script:ProfileDetailView.SetNeedsDisplay()
+            }
+
+            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+            $script:ProfileRedeployJob = $null
+
+            # Refresh the profile screen to pick up new health/drift status
+            if ($script:CurrentScreen -eq 'Profile') {
+                Switch-Screen -ScreenName 'Profile'
+            }
+        }
+    }
 }
 
 # ---------------------------------------------------------------------------
