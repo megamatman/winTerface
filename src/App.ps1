@@ -184,8 +184,8 @@ function Show-HelpOverlay {
         Creates a Terminal.Gui Dialog, populates it with help text, and runs
         it modally. Dismissed by pressing Escape or the OK button.
     #>
-    $helpWidth  = 64
-    $helpHeight = 24
+    $helpWidth  = 66
+    $helpHeight = 30
 
     $okBtn = [Terminal.Gui.Button]::new("_OK")
     $okBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
@@ -198,18 +198,25 @@ function Show-HelpOverlay {
     )
 
     $lines = @(
-        " KEYBINDINGS"
-        " -------------------------------------------------------"
-        "  Up / Down     Navigate menu items or lists"
-        "  Enter         Select / confirm"
+        " GLOBAL"
+        " ----------------------------------------------------------"
+        "  Up / Down     Navigate lists"
+        "  Enter         Select or confirm"
         "  Escape        Go back one level"
-        "  Tab           Accept autocomplete suggestion"
+        "  Tab           Cycle slash command completion"
         "  F1            Show this help"
         "  /             Focus the command bar"
         "  Ctrl+Q        Quit winTerface"
         ""
+        " SCREEN-SPECIFIC"
+        " ----------------------------------------------------------"
+        "  Updates:   Space toggle, A select all, U update, F5 check"
+        "  Tools:     A add, I install, U update, X remove, O open"
+        "  Profile:   R redeploy, D drift, C compare, O open"
+        "  Config:    E edit, S save, V verify, C clear, R refresh"
+        ""
         " SLASH COMMANDS"
-        " -------------------------------------------------------"
+        " ----------------------------------------------------------"
     )
 
     foreach ($cmd in (Get-AllSlashCommands)) {

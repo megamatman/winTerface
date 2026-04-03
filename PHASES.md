@@ -31,14 +31,19 @@ with env var + profile.ps1 fallback update and backup. Tool inventory
 with background version scanning. Update cache viewer with clear and
 refresh.
 
-## Phase 6 -- Tools screen and install script (current)
+## Phase 6 -- Tools screen and install script ✓ complete
 Tools screen: full tool inventory with install, update, remove, and
 add actions. Remove calls Uninstall-Tool.ps1 with output streaming.
 Install calls Setup-DevEnvironment.ps1 -InstallTool. Config screen
 tools section replaced with navigation link to Tools screen.
 Install-WinTerface.ps1: idempotent installer, sets WINTERFACE env
-var, installs ConsoleGuiTools, creates config directory, adds 'wt'
+var, installs ConsoleGuiTools, creates config directory, adds 'wti'
 profile alias.
 
-## Phase 7 -- Polish and public release
-Error handling hardening, help overlay polish, release packaging.
+## Phase 7 -- Polish and public release ✓ complete
+Error handling audit: all 37 event handlers verified for closure safety,
+all 11 job scriptblocks wrapped in try/catch, job lifecycle and nested
+Application.Run verified clean. Help overlay expanded with screen-specific
+keybindings. Install script hardened with version upgrade check, per-step
+failure handling, and 'wti' alias (avoids Windows Terminal 'wt' conflict).
+README.md rewritten for release.
