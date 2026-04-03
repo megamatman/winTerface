@@ -187,10 +187,11 @@ function Build-HomeScreen {
     }
 
     # --- Quit hint ---
-    $quitHint = [Terminal.Gui.Label]::new("  Ctrl+Q to quit")
-    $quitHint.X = 0
-    $quitHint.Y = [Terminal.Gui.Pos]::AnchorEnd(2)
-    $quitHint.Width = [Terminal.Gui.Dim]::Fill()
+    $quitHint = [Terminal.Gui.Label]::new("[Ctrl+Q Quit]")
+    $quitHint.X = [Terminal.Gui.Pos]::AnchorEnd(15)
+    $quitHint.Y = 0
+    $quitHint.Width = 14
+    if ($script:Colors.StatusWarn) { $quitHint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($quitHint)
 
     # --- Credit ---
