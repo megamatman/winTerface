@@ -503,8 +503,10 @@ function Show-ConfigEditDialog {
     param([string]$Title, [string]$Hint, [string]$CurrentValue)
 
     $script:_EditResult = $null
-    # Store the TextField at script scope -- .NET event scriptblocks cannot
-    # capture function-local variables (see CONTRIBUTING.md).
+    # $input is function-local and resolves to $null in .NET event handler
+    # scriptblocks (same closure bug as Updates screen and Profile screen).
+    # Stored as $script:_EditInput so the OK button's add_Clicked handler
+    # can read the value at event time. See CONTRIBUTING.md.
     $script:_EditInput = $null
 
     $okBtn     = [Terminal.Gui.Button]::new("_OK")

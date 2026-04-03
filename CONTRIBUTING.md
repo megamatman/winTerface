@@ -27,6 +27,11 @@ must be followed to avoid crashes:
   PowerShell scriptblocks used as .NET delegates do not close over
   function-local scope. Use `$script:` variables instead.
 
+- **Dialog input fields must be stored at `$script:` scope before registering
+  event handlers.** A `TextField` or any other view stored in a function-local
+  variable resolves to `$null` inside `.add_Clicked` and similar handlers.
+  Use `$script:_<DescriptiveName>` as the naming convention.
+
 - **Always wrap timer callbacks in try/catch.**
   Unhandled exceptions inside .NET timer delegates propagate through
   Application.Run() and crash the process.
