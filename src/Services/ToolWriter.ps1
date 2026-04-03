@@ -195,10 +195,12 @@ function Get-ModifiedSetupContent {
             continue
         }
 
-        # Insert function definition before the main execution block's outcome
-        # tracking. Match only the unindented line (column 0) to skip the
-        # -InstallTool short-circuit block which has an indented copy.
-        if (-not $funcInserted -and $line -match '^#\s*Outcome tracking') {
+        # Insert function definition before the "# Main Execution" section
+        # header. This places the new function alongside all other Install-*
+        # functions, ABOVE the -InstallTool short-circuit block so that
+        # Get-Command can discover it at runtime.
+        if (-not $funcInserted -and $line -match '^#\s*={3,}' -and
+            $i + 1 -lt $lines.Count -and $lines[$i + 1] -match 'Main Execution') {
             $result.Add($funcCode)
             $result.Add('')
             $funcInserted = $true
