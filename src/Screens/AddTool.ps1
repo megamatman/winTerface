@@ -179,15 +179,17 @@ function Build-WizardSearchInput {
     $prompt.X = 0; $prompt.Y = 2; $prompt.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($prompt)
 
-    $tf = [Terminal.Gui.TextField]::new("")
-    $tf.X = 4; $tf.Y = 4
-    $tf.Width = [Terminal.Gui.Dim]::Fill(4); $tf.Height = 1
-    if ($script:Colors.CommandBar) { $tf.ColorScheme = $script:Colors.CommandBar }
+    # Store at $script: scope -- .NET event scriptblocks cannot capture
+    # function-local variables. See CONTRIBUTING.md.
+    $script:_SearchInput = [Terminal.Gui.TextField]::new("")
+    $script:_SearchInput.X = 4; $script:_SearchInput.Y = 4
+    $script:_SearchInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_SearchInput.Height = 1
+    if ($script:Colors.CommandBar) { $script:_SearchInput.ColorScheme = $script:Colors.CommandBar }
 
-    $tf.add_KeyPress({
+    $script:_SearchInput.add_KeyPress({
         param($e)
         if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
-            $term = $tf.Text.ToString().Trim()
+            $term = $script:_SearchInput.Text.ToString().Trim()
             if ($term.Length -gt 0) {
                 Start-WizardSearch -SearchTerm $term
             }
@@ -201,9 +203,9 @@ function Build-WizardSearchInput {
 
     Add-WizardHint -Container $Container -Y 6 -Text "Enter to search, Escape to go back"
 
-    $Container.Add($tf)
+    $Container.Add($script:_SearchInput)
     $script:Layout.MenuList = $null
-    $tf.SetFocus()
+    $script:_SearchInput.SetFocus()
 }
 
 function Start-WizardSearch {
@@ -460,6 +462,10 @@ function Build-WizardGuidedStep {
     $descLabel.X = 0; $descLabel.Y = 3; $descLabel.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($descLabel)
 
+    # Store $step at $script: scope -- .NET event scriptblocks cannot capture
+    # function-local variables. See CONTRIBUTING.md.
+    $script:_CurrentStep = $step
+
     if ($step.Type -eq 'select') {
         # Selection list
         $optStrings = [System.Collections.Generic.List[string]]::new()
@@ -481,8 +487,8 @@ function Build-WizardGuidedStep {
 
         $selList.add_OpenSelectedItem({
             param($e)
-            $script:WizardData[$step.Key] = $step.Options[$e.Item]
-            $script:WizardStep = $step.Next
+            $script:WizardData[$script:_CurrentStep.Key] = $script:_CurrentStep.Options[$e.Item]
+            $script:WizardStep = $script:_CurrentStep.Next
             Switch-Screen -ScreenName 'AddTool'
         })
 
@@ -499,24 +505,24 @@ function Build-WizardGuidedStep {
         $selList.SetFocus()
 
     } else {
-        # Text input
+        # Text input -- store at $script: scope for event handler access.
         $currentVal = $script:WizardData[$step.Key]
-        $tf = [Terminal.Gui.TextField]::new($(if ($currentVal) { $currentVal } else { '' }))
-        $tf.X = 4; $tf.Y = 5
-        $tf.Width = [Terminal.Gui.Dim]::Fill(4); $tf.Height = 1
-        if ($script:Colors.CommandBar) { $tf.ColorScheme = $script:Colors.CommandBar }
+        $script:_GuidedInput = [Terminal.Gui.TextField]::new($(if ($currentVal) { $currentVal } else { '' }))
+        $script:_GuidedInput.X = 4; $script:_GuidedInput.Y = 5
+        $script:_GuidedInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_GuidedInput.Height = 1
+        if ($script:Colors.CommandBar) { $script:_GuidedInput.ColorScheme = $script:Colors.CommandBar }
 
-        $tf.add_KeyPress({
+        $script:_GuidedInput.add_KeyPress({
             param($e)
             if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
-                $val = $tf.Text.ToString().Trim()
-                if ($step.Required -and [string]::IsNullOrWhiteSpace($val)) {
+                $val = $script:_GuidedInput.Text.ToString().Trim()
+                if ($script:_CurrentStep.Required -and [string]::IsNullOrWhiteSpace($val)) {
                     # Don't advance if required and empty
                     $e.Handled = $true
                     return
                 }
-                $script:WizardData[$step.Key] = $val
-                $script:WizardStep = $step.Next
+                $script:WizardData[$script:_CurrentStep.Key] = $val
+                $script:WizardStep = $script:_CurrentStep.Next
                 Switch-Screen -ScreenName 'AddTool'
                 $e.Handled = $true
             }
@@ -530,9 +536,9 @@ function Build-WizardGuidedStep {
         Add-WizardHint -Container $Container -Y 7 `
             -Text "Enter to continue${optionalHint}, Escape to go back"
 
-        $Container.Add($tf)
+        $Container.Add($script:_GuidedInput)
         $script:Layout.MenuList = $null
-        $tf.SetFocus()
+        $script:_GuidedInput.SetFocus()
     }
 }
 
