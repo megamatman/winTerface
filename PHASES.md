@@ -3,13 +3,14 @@
 ## Phase 1 -- Shell and navigation ✓ complete
 Layout, command bar, fuzzy autocomplete, first-run wizard, status dashboard.
 
-## Phase 2 -- Update management (current)
+## Phase 2 -- Update management ✓ complete
 Updates screen, choco/winget/pipx update status, streaming update output,
 elevation detection, update caching.
 
-## Phase 3 -- Add tool wizard
+## Phase 3 -- Add tool wizard and individual updates (current)
 Package manager search (choco + winget), guided wizard, diff preview,
-atomic file writes to winSetup config files.
+atomic file writes to winSetup config files. Individual per-tool updates
+via Update-DevEnvironment.ps1 -Package.
 
 ## Phase 4 -- Profile management
 Profile health detail view, section-level fix suggestions, open in VS Code.
