@@ -21,8 +21,11 @@ checks, count mismatch), pipx update support, profile detail panel
 improvements (plain-language descriptions, closure fix), F5/check
 feedback, PSScriptAnalyzer cleanup across all files.
 
-## Phase 5 -- Config management
-winTerface config screen, winSetup path management, per-tool config viewing.
+## Phase 5 -- Config management (current)
+winTerface settings editor with validation. winSetup path management
+with env var + profile.ps1 fallback update and backup. Tool inventory
+with background version scanning. Update cache viewer with clear and
+refresh.
 
 ## Phase 6 -- Polish and public release
 Error handling hardening, performance, help documentation, release packaging.
