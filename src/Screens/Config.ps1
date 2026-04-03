@@ -503,6 +503,10 @@ function Show-ConfigEditDialog {
     param([string]$Title, [string]$Hint, [string]$CurrentValue)
 
     $script:_EditResult = $null
+    # Store the TextField at script scope -- .NET event scriptblocks cannot
+    # capture function-local variables (see CONTRIBUTING.md).
+    $script:_EditInput = $null
+
     $okBtn     = [Terminal.Gui.Button]::new("_OK")
     $cancelBtn = [Terminal.Gui.Button]::new("Ca_ncel")
     $dialog    = [Terminal.Gui.Dialog]::new($Title, 60, 8,
@@ -512,17 +516,18 @@ function Show-ConfigEditDialog {
     $hintLabel.X = 1; $hintLabel.Y = 1; $hintLabel.Width = [Terminal.Gui.Dim]::Fill(1)
     $dialog.Add($hintLabel)
 
-    $input = [Terminal.Gui.TextField]::new($CurrentValue)
-    $input.X = 1; $input.Y = 2; $input.Width = [Terminal.Gui.Dim]::Fill(1)
-    $dialog.Add($input)
+    $tf = [Terminal.Gui.TextField]::new($CurrentValue)
+    $tf.X = 1; $tf.Y = 2; $tf.Width = [Terminal.Gui.Dim]::Fill(1)
+    $dialog.Add($tf)
+    $script:_EditInput = $tf
 
     $okBtn.add_Clicked({
-        $script:_EditResult = $input.Text.ToString()
+        $script:_EditResult = $script:_EditInput.Text.ToString()
         [Terminal.Gui.Application]::RequestStop()
     })
     $cancelBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
 
-    $input.SetFocus()
+    $tf.SetFocus()
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
     $script:UpdateFlowActive = $false
