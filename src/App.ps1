@@ -342,7 +342,7 @@ function Invoke-BackgroundPoll {
         }
     }
 
-    # 5 -- tool inventory job (config screen section 2)
+    # 5 -- tool inventory job (config screen or tools screen)
     if ($script:ToolInventoryJob) {
         $job = $script:ToolInventoryJob
         $jobState = try { $job.State } catch { 'Failed' }
@@ -353,10 +353,35 @@ function Invoke-BackgroundPoll {
             try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
             $script:ToolInventoryJob = $null
 
-            # Refresh the config screen tools section if visible
             if ($script:CurrentScreen -eq 'Config' -and $script:ConfigSectionIndex -eq 2) {
                 Update-ConfigDetail -Index 2
             }
+            elseif ($script:CurrentScreen -eq 'Tools') {
+                Switch-Screen -ScreenName 'Tools'
+            }
+        }
+    }
+
+    # 6 -- tool action job (install/update/remove from Tools screen)
+    if ($script:ToolActionJob) {
+        $job = $script:ToolActionJob
+        try {
+            $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+            foreach ($line in $newOutput) {
+                if ($null -ne $line) { Add-ToolsOutput -Text "$line" }
+            }
+        } catch {}
+
+        $jobState = try { $job.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
+            $exitMsg = if ($jobState -eq 'Completed') { 'Done' } else { "Finished ($jobState)" }
+            Add-ToolsOutput -Text "--- $exitMsg ---"
+            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+            $script:ToolActionJob = $null
+
+            # Refresh tool inventory after action completes
+            $script:ToolInventoryData = $null
+            Get-ToolInventory
         }
     }
 

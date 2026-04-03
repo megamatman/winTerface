@@ -129,19 +129,9 @@ function Build-ConfigScreen {
             $e.Handled = $true; return
         }
 
-        # F5 -- Refresh tools (section 2)
-        if ($key -eq [Terminal.Gui.Key]::F5) {
-            if ($idx -eq 2) {
-                $script:ToolInventoryData = $null
-                Get-ToolInventory
-                Update-ConfigDetail -Index 2
-            }
-            $e.Handled = $true; return
-        }
-
-        # O -- Open install location (section 2)
-        if ([int]$key -eq [int][char]'o' -or [int]$key -eq [int][char]'O') {
-            if ($idx -eq 2) { Invoke-OpenToolLocation }
+        # T -- Open Tools screen (section 2)
+        if ([int]$key -eq [int][char]'t' -or [int]$key -eq [int][char]'T') {
+            if ($idx -eq 2) { Switch-Screen -ScreenName 'Tools' }
             $e.Handled = $true; return
         }
 
@@ -252,38 +242,15 @@ function Get-WinSetupPathText {
 function Get-ToolInventoryText {
     <#
     .SYNOPSIS
-        Renders the tool inventory section. Shows loading indicator if the
-        background job is still running.
+        Renders a navigation link to the dedicated Tools screen.
     #>
-    if ($script:ToolInventoryJob -and -not $script:ToolInventoryData) {
-        return "Tool Inventory`n`nLoading tool inventory...`n`n[F5] Refresh"
-    }
-
-    if (-not $script:ToolInventoryData) {
-        return "Tool Inventory`n`nNo inventory data. Press F5 to scan.`n`n[F5] Refresh"
-    }
-
-    $lines = @("Tool Inventory", "")
-    $nameW = 16; $verW = 14
-
-    foreach ($t in $script:ToolInventoryData) {
-        $icon = switch ($t.Status) {
-            'Ok'    { [char]0x2713 }
-            'Error' { [char]0x2717 }
-            default { '?' }
-        }
-        $name = "$($t.Name)".PadRight($nameW)
-        $ver  = "$($t.Version)".PadRight($verW)
-        $lines += "$icon $name $ver $($t.Manager)"
-    }
-
-    $found  = @($script:ToolInventoryData | Where-Object { $_.Status -ne 'Error' }).Count
-    $total  = @($script:ToolInventoryData).Count
-    $lines += ""
-    $lines += "$found of $total tools found."
-    $lines += ""
-    $lines += "[F5] Refresh   [O] Open install location"
-
+    $lines = @(
+        "Tools Inventory"
+        ""
+        "View and manage all installed tools from the Tools screen."
+        ""
+        "[T] Open Tools screen"
+    )
     return ($lines -join "`n")
 }
 
