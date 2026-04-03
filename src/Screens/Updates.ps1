@@ -63,7 +63,7 @@ function Build-UpdatesScreen {
         $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
         $Container.Add($tipLabel)
 
-        $escHint = [Terminal.Gui.Label]::new("  [F5] Check for updates   [Esc] Back to home")
+        $escHint = [Terminal.Gui.Label]::new("  [F5] Refresh   [Esc] Back to home")
         $escHint.X = 0; $escHint.Y = 7
         $escHint.Width = [Terminal.Gui.Dim]::Fill()
         $escHint.CanFocus = $true
@@ -73,6 +73,7 @@ function Build-UpdatesScreen {
             param($e)
             if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::F5) {
                 Start-BackgroundUpdateCheck -Force
+                Switch-Screen -ScreenName 'Updates'
                 $e.Handled = $true
             }
         })
@@ -178,9 +179,10 @@ function Build-UpdatesScreen {
             return
         }
 
-        # F5 -- refresh cache
+        # F5 -- refresh: start check and re-render to show "checking..." indicator
         if ($key -eq [Terminal.Gui.Key]::F5) {
             Start-BackgroundUpdateCheck -Force
+            Switch-Screen -ScreenName 'Updates'
             $e.Handled = $true
             return
         }
