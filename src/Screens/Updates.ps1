@@ -123,11 +123,16 @@ function Build-UpdatesScreen {
         $key = $eventArgs.KeyEvent.Key
 
         # 'a' / 'A' -- toggle all marks
+        # NOTE: use $script:Layout.MenuList, not the local $updateList --
+        # .NET event scriptblocks cannot capture function-local variables.
         if ([int]$key -eq [int][char]'a' -or [int]$key -eq [int][char]'A') {
-            for ($i = 0; $i -lt $script:_UpdateItems.Count; $i++) {
-                $updateList.Source.SetMark($i, $true)
+            $lv = $script:Layout.MenuList
+            if ($lv -and $lv.Source) {
+                for ($i = 0; $i -lt $script:_UpdateItems.Count; $i++) {
+                    $lv.Source.SetMark($i, $true)
+                }
+                $lv.SetNeedsDisplay()
             }
-            $updateList.SetNeedsDisplay()
             $eventArgs.Handled = $true
             return
         }
@@ -136,7 +141,7 @@ function Build-UpdatesScreen {
         if ([int]$key -eq [int][char]'u' -or [int]$key -eq [int][char]'U') {
             try {
                 $script:UpdateFlowActive = $true
-                Invoke-SelectedUpdates -ListView $updateList
+                Invoke-SelectedUpdates
             }
             catch {
                 try { Append-UpdateOutput -Text "Error: $_" } catch {}
@@ -321,18 +326,19 @@ function Invoke-SelectedUpdates {
     <#
     .SYNOPSIS
         Starts per-tool updates for all marked items in the ListView.
-    .PARAMETER ListView
-        The Terminal.Gui.ListView whose marks indicate selection.
+    .DESCRIPTION
+        Uses $script:Layout.MenuList (the script-scoped reference) rather than
+        a closure-captured local variable, because .NET event handler
+        scriptblocks cannot reliably capture function-local variables.
     #>
-    param($ListView)
 
     if ($script:UpdateRunJob) {
         Append-UpdateOutput -Text "An update is already running."
         return
     }
 
-    # Guard against null references before accessing methods
-    if (-not $ListView -or -not $ListView.Source) {
+    $lv = $script:Layout.MenuList
+    if (-not $lv -or -not $lv.Source) {
         Append-UpdateOutput -Text "Cannot read selections -- list view unavailable."
         return
     }
@@ -345,16 +351,11 @@ function Invoke-SelectedUpdates {
     $selected = @()
     $itemCount = @($script:_UpdateItems).Count
     for ($i = 0; $i -lt $itemCount; $i++) {
-        try {
-            if ($ListView.Source.IsMarked($i)) {
-                $item = @($script:_UpdateItems)[$i]
-                if ($item -and $item.availableVersion -and $item.availableVersion -ne '') {
-                    $selected += $item
-                }
+        if ($lv.Source.IsMarked($i)) {
+            $item = @($script:_UpdateItems)[$i]
+            if ($item -and $item.availableVersion -and $item.availableVersion -ne '') {
+                $selected += $item
             }
-        }
-        catch {
-            Append-UpdateOutput -Text "Warning: could not read mark for item $i"
         }
     }
 
