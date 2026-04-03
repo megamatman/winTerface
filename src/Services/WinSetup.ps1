@@ -590,6 +590,7 @@ $script:KnownTools = @(
     @{ Name = 'bandit';       Command = 'bandit';       Manager = 'pipx';      Desc = 'Python security linter.' }
     @{ Name = 'pre-commit';   Command = 'pre-commit';   Manager = 'pipx';      Desc = 'Git hook manager.' }
     @{ Name = 'cookiecutter'; Command = 'cookiecutter'; Manager = 'pipx';      Desc = 'Project template tool.' }
+    @{ Name = 'jq';           Command = 'jq';           Manager = 'choco';     Desc = 'Command-line JSON processor.' }
 )
 
 $script:ToolInventoryJob  = $null
