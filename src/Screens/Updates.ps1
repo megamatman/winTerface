@@ -58,13 +58,26 @@ function Build-UpdatesScreen {
         if ($script:Colors.StatusOk) { $msgLabel.ColorScheme = $script:Colors.StatusOk }
         $Container.Add($msgLabel)
 
-        $escHint = [Terminal.Gui.Label]::new("  Press Escape to return to the home screen.  [F5] Refresh")
-        $escHint.X = 0; $escHint.Y = 5
+        $tipLabel = [Terminal.Gui.Label]::new("  Press F5 or type /check-for-updates to check for new versions.")
+        $tipLabel.X = 0; $tipLabel.Y = 5
+        $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
+        $Container.Add($tipLabel)
+
+        $escHint = [Terminal.Gui.Label]::new("  [F5] Check for updates   [Esc] Back to home")
+        $escHint.X = 0; $escHint.Y = 7
         $escHint.Width = [Terminal.Gui.Dim]::Fill()
         $escHint.CanFocus = $true
         if ($script:Colors.StatusWarn) { $escHint.ColorScheme = $script:Colors.StatusWarn }
-        $Container.Add($escHint)
 
+        $escHint.add_KeyPress({
+            param($e)
+            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::F5) {
+                Start-BackgroundUpdateCheck -Force
+                $e.Handled = $true
+            }
+        })
+
+        $Container.Add($escHint)
         $script:Layout.MenuList = $null
         $escHint.SetFocus()
         return
