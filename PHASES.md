@@ -25,11 +25,20 @@ checks, count mismatch), pipx update support, profile detail panel
 improvements (plain-language descriptions, closure fix), F5/check
 feedback, PSScriptAnalyzer cleanup across all files.
 
-## Phase 5 -- Config management (current)
+## Phase 5 -- Config management ✓ complete
 winTerface settings editor with validation. winSetup path management
 with env var + profile.ps1 fallback update and backup. Tool inventory
 with background version scanning. Update cache viewer with clear and
 refresh.
 
-## Phase 6 -- Polish and public release
-Error handling hardening, performance, help documentation, release packaging.
+## Phase 6 -- Tools screen and install script (current)
+Tools screen: full tool inventory with install, update, remove, and
+add actions. Remove calls Uninstall-Tool.ps1 with output streaming.
+Install calls Setup-DevEnvironment.ps1 -InstallTool. Config screen
+tools section replaced with navigation link to Tools screen.
+Install-WinTerface.ps1: idempotent installer, sets WINTERFACE env
+var, installs ConsoleGuiTools, creates config directory, adds 'wt'
+profile alias.
+
+## Phase 7 -- Polish and public release
+Error handling hardening, help overlay polish, release packaging.
