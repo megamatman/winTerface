@@ -28,14 +28,16 @@ function Get-TabCompletion {
         with the typed prefix. On repeated presses with the same input,
         cycles through the list. Typing a new character resets the cycle
         via Reset-TabCompletion.
-    .PARAMETER Input
+    .PARAMETER Text
         The current text in the command bar including the leading slash.
     .OUTPUTS
         [string] The completed command string, or $null if no match.
     #>
-    param([string]$Input)
+    param([string]$Text)
 
-    $normalised = $Input.ToLower().TrimEnd()
+    # Do not use $Input as a parameter name -- it is a PowerShell automatic
+    # variable (pipeline input enumerator) and silently receives empty string.
+    $normalised = $Text.ToLower().TrimEnd()
 
     # If input changed since last Tab, rebuild the match list
     if ($normalised -ne $script:TabCompletion.LastInput) {

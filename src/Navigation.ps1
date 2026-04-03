@@ -157,7 +157,7 @@ function Register-CommandBarHandlers {
         # Tab always uses the cycling logic for predictable behaviour.
         # Always suppress default Tab behaviour (focus change).
         if ($key -eq [Terminal.Gui.Key]::Tab) {
-            $completed = Get-TabCompletion -Input $script:Layout.CommandInput.Text.ToString()
+            $completed = Get-TabCompletion -Text $script:Layout.CommandInput.Text.ToString()
             if ($completed) {
                 $script:Layout.CommandInput.Text = $completed
                 $script:Layout.CommandInput.CursorPosition = $completed.Length
