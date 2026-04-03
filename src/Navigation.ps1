@@ -152,30 +152,16 @@ function Register-CommandBarHandlers {
             return
         }
 
-        # Tab -- accept highlighted overlay item, or cycle through prefix matches.
+        # Tab -- cycle through prefix-matched completions.
+        # The overlay is visual feedback; Enter accepts the overlay selection.
+        # Tab always uses the cycling logic for predictable behaviour.
         # Always suppress default Tab behaviour (focus change).
         if ($key -eq [Terminal.Gui.Key]::Tab) {
-            $completed = $null
-
-            # If the overlay is open and an item is highlighted, accept it
-            if ($script:Layout.AutocompleteList -and
-                $script:AutocompleteSuggestions.Count -gt 0) {
-                $idx = $script:Layout.AutocompleteList.SelectedItem
-                if ($idx -ge 0 -and $idx -lt $script:AutocompleteSuggestions.Count) {
-                    $completed = $script:AutocompleteSuggestions[$idx].Command
-                }
-            }
-
-            # Otherwise use the cycling tab completion
-            if (-not $completed) {
-                $completed = Get-TabCompletion -Input $script:Layout.CommandInput.Text.ToString()
-            }
-
+            $completed = Get-TabCompletion -Input $script:Layout.CommandInput.Text.ToString()
             if ($completed) {
                 $script:Layout.CommandInput.Text = $completed
                 $script:Layout.CommandInput.CursorPosition = $completed.Length
             }
-
             $e.Handled = $true
             return
         }
