@@ -36,9 +36,9 @@ function Build-UpdatesScreen {
     $lastLine.Width = [Terminal.Gui.Dim]::Percent(70)
     $Container.Add($lastLine)
 
-    $refreshHint = [Terminal.Gui.Label]::new("[F5 Refresh]")
-    $refreshHint.X = [Terminal.Gui.Pos]::AnchorEnd(14)
-    $refreshHint.Y = 1; $refreshHint.Width = 13
+    $refreshHint = [Terminal.Gui.Label]::new("[F5 Check for updates]")
+    $refreshHint.X = [Terminal.Gui.Pos]::AnchorEnd(24)
+    $refreshHint.Y = 1; $refreshHint.Width = 23
     if ($script:Colors.StatusWarn) { $refreshHint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($refreshHint)
 
@@ -65,7 +65,7 @@ function Build-UpdatesScreen {
 
         # Use a single-item ListView so it receives focus and key events properly
         $emptyOptions = [System.Collections.Generic.List[string]]::new()
-        $emptyOptions.Add("  [F5] Refresh   [Esc] Back to home")
+        $emptyOptions.Add("  [F5] Check for updates   [Esc] Back to home")
         $emptyList = [Terminal.Gui.ListView]::new($emptyOptions)
         $emptyList.X = 0; $emptyList.Y = 7
         $emptyList.Width = [Terminal.Gui.Dim]::Fill()
@@ -77,8 +77,9 @@ function Build-UpdatesScreen {
             param($e)
             $key = $e.KeyEvent.Key
 
-            # F5 -- start check, set flag so timer refreshes the screen later
+            # F5 -- same as /check-for-updates
             if ($key -eq [Terminal.Gui.Key]::F5) {
+                Add-UpdateOutput -Text "Checking for updates..."
                 Start-BackgroundUpdateCheck -Force
                 $e.Handled = $true
                 return
@@ -194,8 +195,9 @@ function Build-UpdatesScreen {
             return
         }
 
-        # F5 -- refresh: start background check (timer re-renders on completion)
+        # F5 -- same as /check-for-updates
         if ($key -eq [Terminal.Gui.Key]::F5) {
+            Add-UpdateOutput -Text "Checking for updates..."
             Start-BackgroundUpdateCheck -Force
             $e.Handled = $true
             return
@@ -216,7 +218,7 @@ function Build-UpdatesScreen {
     # --- Hint bar ---
     $hintY = 6 + $listHeight + 1
     $hints = [Terminal.Gui.Label]::new(
-        "  [Space] Toggle  [A] All  [U] Update selected  [Ctrl+A] Update all  [F5] Refresh  [Esc] Back")
+        "  [Space] Toggle  [A] All  [U] Update selected  [Ctrl+A] Update all  [F5] Check for updates  [Esc] Back")
     $hints.X = 0; $hints.Y = $hintY
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }

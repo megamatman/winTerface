@@ -162,6 +162,7 @@ function Invoke-SlashCommand {
             'CheckUpdates' {
                 Start-BackgroundUpdateCheck -Force
                 Switch-Screen -ScreenName 'Updates'
+                Add-UpdateOutput -Text "Checking for updates..."
             }
         }
     }
