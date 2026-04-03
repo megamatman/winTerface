@@ -179,8 +179,9 @@ function Build-WizardSearchInput {
     $prompt.X = 0; $prompt.Y = 2; $prompt.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($prompt)
 
-    # Store at $script: scope -- .NET event scriptblocks cannot capture
-    # function-local variables. See CONTRIBUTING.md.
+    # $tf is function-local and resolves to $null in .NET event handlers.
+    # Stored as $script:_SearchInput before registering the KeyPress handler.
+    # See CONTRIBUTING.md -- dialog input fields must use $script: scope.
     $script:_SearchInput = [Terminal.Gui.TextField]::new("")
     $script:_SearchInput.X = 4; $script:_SearchInput.Y = 4
     $script:_SearchInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_SearchInput.Height = 1
@@ -462,8 +463,9 @@ function Build-WizardGuidedStep {
     $descLabel.X = 0; $descLabel.Y = 3; $descLabel.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($descLabel)
 
-    # Store $step at $script: scope -- .NET event scriptblocks cannot capture
-    # function-local variables. See CONTRIBUTING.md.
+    # $step is function-local and resolves to $null in .NET event handlers.
+    # Stored as $script:_CurrentStep before registering OpenSelectedItem.
+    # Also used by the guided text handler (Bug 3) for the same reason.
     $script:_CurrentStep = $step
 
     if ($step.Type -eq 'select') {
@@ -505,7 +507,9 @@ function Build-WizardGuidedStep {
         $selList.SetFocus()
 
     } else {
-        # Text input -- store at $script: scope for event handler access.
+        # $tf is function-local and resolves to $null in .NET event handlers.
+        # Stored as $script:_GuidedInput before registering the KeyPress handler.
+        # $step is read via $script:_CurrentStep (same fix applied in Bug 2).
         $currentVal = $script:WizardData[$step.Key]
         $script:_GuidedInput = [Terminal.Gui.TextField]::new($(if ($currentVal) { $currentVal } else { '' }))
         $script:_GuidedInput.X = 4; $script:_GuidedInput.Y = 5

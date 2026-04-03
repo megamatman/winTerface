@@ -32,6 +32,19 @@ must be followed to avoid crashes:
   variable resolves to `$null` inside `.add_Clicked` and similar handlers.
   Use `$script:_<DescriptiveName>` as the naming convention.
 
+  Confirmed `$script:` variables used for event handler scope in this codebase:
+
+  | Variable | Screen | Purpose |
+  |---|---|---|
+  | `$script:Layout.MenuList` | Multiple | Main navigation list |
+  | `$script:_EditInput` | Config | TextField in config edit dialogs |
+  | `$script:_SearchInput` | AddTool | TextField in package search step |
+  | `$script:_CurrentStep` | AddTool | Step definition hashtable in guided wizard |
+  | `$script:_GuidedInput` | AddTool | TextField in guided text input steps |
+
+  When adding new dialogs or handlers, follow this pattern and add new
+  variables to this table.
+
 - **Always wrap timer callbacks in try/catch.**
   Unhandled exceptions inside .NET timer delegates propagate through
   Application.Run() and crash the process.

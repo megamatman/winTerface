@@ -11,6 +11,10 @@ elevation detection, update caching.
 Package manager search (choco + winget), guided wizard, diff preview,
 atomic file writes to winSetup config files. Individual per-tool updates
 via Update-DevEnvironment.ps1 -Package.
+Post-phase fixes: Three latent closure bugs in AddTool.ps1 (search input
+KeyPress, guided select OpenSelectedItem, guided text KeyPress). All
+handlers now reference $script: scoped variables. Post-fix audit of all
+11 handlers confirmed clean.
 
 ## Phase 4 -- Profile management ✓ complete
 Profile health checks, drift detection, diff view, redeploy action.
