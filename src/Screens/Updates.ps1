@@ -46,14 +46,12 @@ function Build-UpdatesScreen {
     $cache   = Get-UpdateCache
     $updates = if ($cache -and $cache.updates) { @($cache.updates) } else { @() }
 
+    # Only show tools that have a known available update
     $realUpdates = @($updates | Where-Object {
         $_.availableVersion -and $_.availableVersion -ne ''
     })
-    $pipxOnly = @($updates | Where-Object {
-        $_.source -eq 'pipx' -and (-not $_.availableVersion -or $_.availableVersion -eq '')
-    })
 
-    if ($realUpdates.Count -eq 0 -and $pipxOnly.Count -eq 0) {
+    if ($realUpdates.Count -eq 0) {
         $msgLabel = [Terminal.Gui.Label]::new("  All tools are up to date.")
         $msgLabel.X = 0; $msgLabel.Y = 3
         $msgLabel.Width = [Terminal.Gui.Dim]::Fill()
@@ -91,7 +89,7 @@ function Build-UpdatesScreen {
     $Container.Add($sep)
 
     # --- Build ListView items ---
-    $allItems = @($realUpdates) + @($pipxOnly)
+    $allItems = $realUpdates
     $script:_UpdateItems = $allItems
 
     $listStrings = [System.Collections.Generic.List[string]]::new()
