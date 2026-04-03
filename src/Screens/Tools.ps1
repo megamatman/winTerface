@@ -348,11 +348,14 @@ function Invoke-ToolRemoveAction {
     if (-not (Test-Path $uninstallScript)) { Add-ToolsOutput -Text "Uninstall-Tool.ps1 not found."; return }
 
     $keepFiles = $script:_RemoveChoice -eq 'keep'
+    # Pass WINTERFACE so the job can update winTerface's KnownTools (step 5)
+    $wtPath = $script:WinTerfaceRoot
     $script:ToolActionJob = Start-Job -ScriptBlock {
-        param($scriptPath, $toolName, $keep)
+        param($scriptPath, $toolName, $keep, $winterface)
+        $env:WINTERFACE = $winterface
         if ($keep) { & $scriptPath -Tool $toolName -KeepFiles 2>&1 }
         else       { & $scriptPath -Tool $toolName 2>&1 }
-    } -ArgumentList $uninstallScript, $t.Name.ToLower(), $keepFiles
+    } -ArgumentList $uninstallScript, $t.Name.ToLower(), $keepFiles, $wtPath
 }
 
 function Invoke-ToolOpenLocation {
