@@ -639,18 +639,43 @@ function Invoke-WizardConfirm {
         } catch {}
 
         $fileCount = $result.FilesWritten.Count
-        $msg = "Tool '$($script:WizardData.DisplayName)' added successfully ($fileCount files written)."
+        $toolName  = $script:WizardData.DisplayName
 
-        $okBtn = [Terminal.Gui.Button]::new("_OK")
-        $okBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
-        $dialog = [Terminal.Gui.Dialog]::new("Success", 50, 8, [Terminal.Gui.Button[]]@($okBtn))
-        $lbl = [Terminal.Gui.Label]::new(" $msg")
-        $lbl.X = 1; $lbl.Y = 1; $lbl.Width = [Terminal.Gui.Dim]::Fill(1)
+        # Ask whether to install the tool now
+        $script:_InstallNow = $false
+        $installBtn = [Terminal.Gui.Button]::new("_Install now")
+        $laterBtn   = [Terminal.Gui.Button]::new("_Later")
+        $dialog = [Terminal.Gui.Dialog]::new("Tool registered", 54, 9,
+            [Terminal.Gui.Button[]]@($installBtn, $laterBtn))
+        $lbl = [Terminal.Gui.Label]::new(
+            " '$toolName' registered ($fileCount files written).`n`n Install it now?")
+        $lbl.X = 1; $lbl.Y = 1; $lbl.Width = [Terminal.Gui.Dim]::Fill(1); $lbl.Height = 3
         $dialog.Add($lbl)
-        [Terminal.Gui.Application]::Run($dialog)
+
+        $installBtn.add_Clicked({ $script:_InstallNow = $true; [Terminal.Gui.Application]::RequestStop() })
+        $laterBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
+
+        $script:UpdateFlowActive = $true
+        try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+        $script:UpdateFlowActive = $false
 
         Reset-WizardState
-        Switch-Screen -ScreenName 'Home'
+
+        if ($script:_InstallNow) {
+            # Navigate to Tools screen and kick off the install
+            Switch-Screen -ScreenName 'Tools'
+            $setupScript = Join-Path $env:WINSETUP 'Setup-DevEnvironment.ps1'
+            if (Test-Path $setupScript) {
+                $script:ToolsOutputText = ''
+                Add-ToolsOutput -Text "Installing $toolName..."
+                $script:ToolActionJob = Start-Job -ScriptBlock {
+                    param($scriptPath, $name)
+                    & $scriptPath -InstallTool $name 2>&1
+                } -ArgumentList $setupScript, $toolName
+            }
+        } else {
+            Switch-Screen -ScreenName 'Home'
+        }
     } else {
         $okBtn = [Terminal.Gui.Button]::new("_OK")
         $okBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
