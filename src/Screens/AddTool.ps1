@@ -601,6 +601,43 @@ function Invoke-WizardConfirm {
     $result = Write-ToolChanges -ToolData $script:WizardData
 
     if ($result.Success) {
+        # Append to $script:KnownTools in WinSetup.ps1 so the new tool
+        # appears on the Tools screen. Mirrors Uninstall-Tool.ps1 Step 5.
+        try {
+            $wtWinSetup = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'WinSetup.ps1'
+            if (Test-Path $wtWinSetup) {
+                $backup = "$wtWinSetup.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                Copy-Item $wtWinSetup $backup -ErrorAction SilentlyContinue
+                $wsContent = Get-Content $wtWinSetup
+                $newEntry = "    @{ Name = '$($script:WizardData.DisplayName)'; Command = '$($script:WizardData.VerifyCommand)'; Manager = '$($script:WizardData.PackageManager)'; Desc = '$($script:WizardData.DisplayName) tool.' }"
+                $inserted = $false
+                $newLines = [System.Collections.Generic.List[string]]::new()
+                foreach ($l in $wsContent) {
+                    $newLines.Add($l)
+                    # Insert before the closing paren of $script:KnownTools
+                    if (-not $inserted -and $l -match '^\)' -and $newLines.Count -gt 5) {
+                        # Check that the previous lines look like KnownTools entries
+                        $prev = $newLines[$newLines.Count - 2]
+                        if ($prev -match "Name\s*=") {
+                            $newLines.Insert($newLines.Count - 1, $newEntry)
+                            $inserted = $true
+                        }
+                    }
+                }
+                if ($inserted) {
+                    $newLines | Set-Content $wtWinSetup -Encoding UTF8
+                }
+                # Also add to the in-memory array and invalidate cached inventory
+                $script:KnownTools += @{
+                    Name = $script:WizardData.DisplayName
+                    Command = $script:WizardData.VerifyCommand
+                    Manager = $script:WizardData.PackageManager
+                    Desc = "$($script:WizardData.DisplayName) tool."
+                }
+                $script:ToolInventoryData = $null
+            }
+        } catch {}
+
         $fileCount = $result.FilesWritten.Count
         $msg = "Tool '$($script:WizardData.DisplayName)' added successfully ($fileCount files written)."
 
