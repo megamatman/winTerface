@@ -36,6 +36,8 @@ function Build-UpdatesScreen {
     $lastLine.Width = [Terminal.Gui.Dim]::Percent(70)
     $Container.Add($lastLine)
 
+    # F5 was labelled "Refresh" which conflicted with its meaning on other
+    # screens. Renamed to "Check for updates" throughout to eliminate ambiguity.
     $refreshHint = [Terminal.Gui.Label]::new("[F5 Check for updates]")
     $refreshHint.X = [Terminal.Gui.Pos]::AnchorEnd(24)
     $refreshHint.Y = 1; $refreshHint.Width = 23
@@ -63,8 +65,9 @@ function Build-UpdatesScreen {
         $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
         $Container.Add($tipLabel)
 
-        # Without a focusable view, keyboard events do not reach global handlers
-        # including Escape. A single-item ListView is used when no updates exist.
+        # A focusable view must always exist. Without one, key events including
+        # F5 and Escape do not reach global handlers. Single-item ListView
+        # provides reliable focus even when no updates are available.
         $emptyOptions = [System.Collections.Generic.List[string]]::new()
         $emptyOptions.Add("  [F5] Check for updates   [Esc] Back to home")
         $emptyList = [Terminal.Gui.ListView]::new($emptyOptions)
@@ -197,9 +200,9 @@ function Build-UpdatesScreen {
             return
         }
 
-        # F5 -- same as /check-for-updates. Do not call Switch-Screen here:
-        # it destroys the view that owns this event mid-dispatch, breaking
-        # the event system. The timer re-renders on completion instead.
+        # F5 previously called Switch-Screen from inside a key event handler,
+        # destroying the view that owns the event mid-dispatch. The timer
+        # re-renders on completion instead. See CONTRIBUTING.md.
         if ($key -eq [Terminal.Gui.Key]::F5) {
             Add-UpdateOutput -Text "Checking for updates..."
             Start-BackgroundUpdateCheck -Force

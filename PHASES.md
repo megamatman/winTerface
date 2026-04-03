@@ -14,8 +14,12 @@ via Update-DevEnvironment.ps1 -Package.
 
 ## Phase 4 -- Profile management ✓ complete
 Profile health checks, drift detection, diff view, redeploy action.
-Post-phase: 14 stability and correctness fixes (Terminal.Gui crash
-prevention, cache correctness, pipx update support, UX improvements).
+Post-phase fixes: Terminal.Gui crash prevention (closure variables,
+Switch-Screen in key handlers, nested Application.Run), update cache
+correctness (ISO 8601 dates, job metadata pollution, empty array
+checks, count mismatch), pipx update support, profile detail panel
+improvements (plain-language descriptions, closure fix), F5/check
+feedback, PSScriptAnalyzer cleanup across all files.
 
 ## Phase 5 -- Config management
 winTerface config screen, winSetup path management, per-tool config viewing.

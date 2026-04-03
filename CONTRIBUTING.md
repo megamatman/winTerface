@@ -46,6 +46,8 @@ must be followed to avoid crashes:
 
 ## Code style
 
+- Use `$script:` scope for anything referenced from .NET event handlers.
+  Function-local variables are not visible to event scriptblocks.
 - Use `$e` (not `$eventArgs`) for event handler parameters to avoid
   shadowing PowerShell's automatic variable.
 - Use approved verbs for function names (`Add-`, not `Append-`).

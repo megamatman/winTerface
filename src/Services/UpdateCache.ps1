@@ -287,7 +287,9 @@ function Update-BackgroundCheckStatus {
             $script:UpdateCheckState = 'Idle'
         }
 
-        # Write completion message to the updates output pane
+        # Writes a human-readable completion message to the output pane when
+        # the background check finishes. Without this, the pane went silent
+        # after the check completed and users had no confirmation it ran.
         $msg = if ($updateCount -gt 0) {
             $noun = if ($updateCount -eq 1) { 'update' } else { 'updates' }
             "Check complete -- $updateCount $noun available."

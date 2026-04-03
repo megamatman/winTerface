@@ -126,8 +126,9 @@ function Build-ProfileScreen {
     }
 
     # --- Selection change updates detail ---
-    # Do not reference the local $healthList here -- .NET event scriptblocks
-    # cannot capture function-local variables. Use $script:Layout.MenuList.
+    # $healthList is function-local and resolves to $null in .NET event
+    # scriptblocks (same root cause as the Updates screen closure bug).
+    # References $script:Layout.MenuList directly instead.
     $healthList.add_SelectedItemChanged({
         param($e)
         $lv = $script:Layout.MenuList

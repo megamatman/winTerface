@@ -43,7 +43,9 @@ $script:ExpectedProfileSections = [ordered]@{
     'Show-DevEnvironment' = 'function Show-DevEnvironment'
 }
 
-# Human-readable description of what each section does (shown in detail panel)
+# Plain-language descriptions of each profile section for display in the detail
+# panel. Keyed by section name matching Test-ProfileHealth output. Avoids
+# exposing regex patterns to the user.
 $script:ProfileDescriptions = @{
     'SSH Agent'           = 'Starts the SSH agent and loads your key automatically when a terminal opens.'
     'Chocolatey'          = 'Imports the Chocolatey profile so tab completion works for choco commands.'
