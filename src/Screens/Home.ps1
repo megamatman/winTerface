@@ -8,6 +8,46 @@ $script:HomeMenuItems = @(
     @{ Name = 'About';   Description = 'Version and environment info';     Screen = 'About' }
 )
 
+function Get-RandomQuote {
+    <#
+    .SYNOPSIS
+        Reads a random quote from quotes.txt and returns it as a safe display string.
+    .OUTPUTS
+        String. The formatted quote, or empty string if the file cannot be read.
+    #>
+    $quotesPath = Join-Path $PSScriptRoot 'quotes.txt'
+
+    if (-not (Test-Path $quotesPath)) { return '' }
+
+    try {
+        $lines = Get-Content $quotesPath -ErrorAction Stop |
+            Where-Object { $_ -match '^\d+\.\s+".+"' }
+
+        if ($lines.Count -eq 0) { return '' }
+
+        $line = $lines[(Get-Random -Minimum 0 -Maximum $lines.Count)]
+
+        # Strip the leading number and period: "nn. rest" -> "rest"
+        if ($line -match '^\d+\.\s+(.+)$') {
+            $quote = $matches[1].Trim()
+
+            # Safety: treat the quote as plain display text only.
+            # Strip control characters; allow printable ASCII plus common
+            # Unicode punctuation (em dash, en dash, curly quotes).
+            $quote = $quote -replace '[^\x20-\x7E\u00C0-\u00FF\u2013\u2014\u201C\u201D\u2018\u2019]', ''
+            if ($quote.Length -gt 200) { $quote = $quote.Substring(0, 197) + '...' }
+
+            return $quote
+        }
+    }
+    catch {
+        # File read failure is non-fatal -- home screen loads without a quote
+        return ''
+    }
+
+    return ''
+}
+
 function Build-HomeScreen {
     <#
     .SYNOPSIS
@@ -135,6 +175,23 @@ function Build-HomeScreen {
         $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
         $Container.Add($tipLabel)
     }
+
+    # --- Inspirational quote (random on each load) ---
+    $quote = Get-RandomQuote
+    if ($quote) {
+        $quoteLabel = [Terminal.Gui.Label]::new("  $quote")
+        $quoteLabel.X = 0
+        $quoteLabel.Y = [Terminal.Gui.Pos]::AnchorEnd(4)
+        $quoteLabel.Width = [Terminal.Gui.Dim]::Fill()
+        $Container.Add($quoteLabel)
+    }
+
+    # --- Quit hint ---
+    $quitHint = [Terminal.Gui.Label]::new("  Ctrl+Q to quit")
+    $quitHint.X = 0
+    $quitHint.Y = [Terminal.Gui.Pos]::AnchorEnd(2)
+    $quitHint.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($quitHint)
 
     # --- Credit ---
     $credit = [Terminal.Gui.Label]::new("  Created by Matt Lawrence")
