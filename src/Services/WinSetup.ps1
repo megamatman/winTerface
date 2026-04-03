@@ -324,9 +324,9 @@ function Start-NextPackageUpdate {
     $pkg = $script:UpdatePackageQueue[$script:UpdatePackageIndex]
 
     $sep = [string]::new([char]0x2500, 42)
-    Append-UpdateOutput -Text $sep
-    Append-UpdateOutput -Text " Updating $($pkg.name)..."
-    Append-UpdateOutput -Text $sep
+    Add-UpdateOutput -Text $sep
+    Add-UpdateOutput -Text " Updating $($pkg.name)..."
+    Add-UpdateOutput -Text $sep
 
     $updateScript = Join-Path $env:WINSETUP 'Update-DevEnvironment.ps1'
     $script:UpdateRunJob       = Start-Job -ScriptBlock {
@@ -346,8 +346,8 @@ function Complete-PackageUpdateQueue {
     $succeeded = @($script:UpdatePackageResults.Values | Where-Object { $_ -eq 'success' }).Count
     $failed    = @($script:UpdatePackageResults.Values | Where-Object { $_ -eq 'failed' }).Count
 
-    Append-UpdateOutput -Text ''
-    Append-UpdateOutput -Text "--- $succeeded updated, $failed failed ---"
+    Add-UpdateOutput -Text ''
+    Add-UpdateOutput -Text "--- $succeeded updated, $failed failed ---"
 
     $script:UpdatePackageQueue   = @()
     $script:UpdatePackageIndex   = -1

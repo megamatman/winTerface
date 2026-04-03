@@ -256,7 +256,7 @@ function Invoke-BackgroundPoll {
             $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
             foreach ($line in $newOutput) {
                 if ($null -ne $line) {
-                    Append-UpdateOutput -Text "$line"
+                    Add-UpdateOutput -Text "$line"
                 }
             }
         }
@@ -291,8 +291,8 @@ function Invoke-BackgroundPoll {
             } else {
                 # Full update completed
                 $exitMsg = if ($jobState -eq 'Completed') { 'succeeded' } else { "finished ($jobState)" }
-                Append-UpdateOutput -Text ''
-                Append-UpdateOutput -Text "--- Update $exitMsg ---"
+                Add-UpdateOutput -Text ''
+                Add-UpdateOutput -Text "--- Update $exitMsg ---"
                 Start-BackgroundUpdateCheck -Force
             }
         }
@@ -393,9 +393,9 @@ function Start-WinTerface {
         Register-CommandBarHandlers
 
         $top.add_KeyPress({
-            param($eventArgs)
-            $handled = Invoke-GlobalKeyHandler -KeyEvent $eventArgs.KeyEvent
-            if ($handled) { $eventArgs.Handled = $true }
+            param($e)
+            $handled = Invoke-GlobalKeyHandler -KeyEvent $e.KeyEvent
+            if ($handled) { $e.Handled = $true }
         })
 
         # Step 5 - show Home and run

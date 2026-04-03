@@ -117,8 +117,8 @@ function Build-UpdatesScreen {
 
     # --- Key handlers ---
     $updateList.add_KeyPress({
-        param($eventArgs)
-        $key = $eventArgs.KeyEvent.Key
+        param($e)
+        $key = $e.KeyEvent.Key
 
         # 'a' / 'A' -- toggle all marks
         # NOTE: use $script:Layout.MenuList, not the local $updateList --
@@ -131,7 +131,7 @@ function Build-UpdatesScreen {
                 }
                 $lv.SetNeedsDisplay()
             }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -142,10 +142,10 @@ function Build-UpdatesScreen {
                 Invoke-SelectedUpdates
             }
             catch {
-                try { Append-UpdateOutput -Text "Error: $_" } catch {}
+                try { Add-UpdateOutput -Text "Error: $_" } catch {}
             }
             finally { $script:UpdateFlowActive = $false }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -156,17 +156,17 @@ function Build-UpdatesScreen {
                 Invoke-FullUpdate
             }
             catch {
-                try { Append-UpdateOutput -Text "Error: $_" } catch {}
+                try { Add-UpdateOutput -Text "Error: $_" } catch {}
             }
             finally { $script:UpdateFlowActive = $false }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
         # F5 -- refresh cache
         if ($key -eq [Terminal.Gui.Key]::F5) {
             Start-BackgroundUpdateCheck -Force
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -175,7 +175,7 @@ function Build-UpdatesScreen {
             $script:Layout.CommandInput.Text = "/"
             $script:Layout.CommandInput.SetFocus()
             $script:Layout.CommandInput.CursorPosition = 1
-            $eventArgs.Handled = $true
+            $e.Handled = $true
         }
     })
 
@@ -257,7 +257,7 @@ function Add-OutputPane {
     $script:UpdateOutputView = $tv
 }
 
-function Append-UpdateOutput {
+function Add-UpdateOutput {
     <#
     .SYNOPSIS
         Appends a line of text to the output pane and scrolls to the bottom.
@@ -331,17 +331,17 @@ function Invoke-SelectedUpdates {
     #>
 
     if ($script:UpdateRunJob) {
-        Append-UpdateOutput -Text "An update is already running."
+        Add-UpdateOutput -Text "An update is already running."
         return
     }
 
     $lv = $script:Layout.MenuList
     if (-not $lv -or -not $lv.Source) {
-        Append-UpdateOutput -Text "Cannot read selections -- list view unavailable."
+        Add-UpdateOutput -Text "Cannot read selections -- list view unavailable."
         return
     }
     if (-not $script:_UpdateItems) {
-        Append-UpdateOutput -Text "No update data loaded."
+        Add-UpdateOutput -Text "No update data loaded."
         return
     }
 
@@ -358,7 +358,7 @@ function Invoke-SelectedUpdates {
     }
 
     if ($selected.Count -eq 0) {
-        Append-UpdateOutput -Text "No updateable tools selected."
+        Add-UpdateOutput -Text "No updateable tools selected."
         return
     }
 
@@ -373,10 +373,10 @@ function Invoke-SelectedUpdates {
 
     $started = Start-PackageUpdateQueue -Packages $selected
     if ($started) {
-        Append-UpdateOutput -Text "Starting per-tool updates ($($selected.Count) tools)..."
-        Append-UpdateOutput -Text ""
+        Add-UpdateOutput -Text "Starting per-tool updates ($($selected.Count) tools)..."
+        Add-UpdateOutput -Text ""
     } else {
-        Append-UpdateOutput -Text "Update cancelled or winSetup path is invalid."
+        Add-UpdateOutput -Text "Update cancelled or winSetup path is invalid."
     }
 }
 
@@ -386,7 +386,7 @@ function Invoke-FullUpdate {
         Runs the full Update-DevEnvironment.ps1 script with no arguments.
     #>
     if ($script:UpdateRunJob) {
-        Append-UpdateOutput -Text "An update is already running."
+        Add-UpdateOutput -Text "An update is already running."
         return
     }
 
@@ -398,9 +398,9 @@ function Invoke-FullUpdate {
 
     $started = Invoke-WinSetupUpdate
     if ($started) {
-        Append-UpdateOutput -Text "Starting full Update-DevEnvironment.ps1 ..."
-        Append-UpdateOutput -Text ""
+        Add-UpdateOutput -Text "Starting full Update-DevEnvironment.ps1 ..."
+        Add-UpdateOutput -Text ""
     } else {
-        Append-UpdateOutput -Text "Update cancelled or winSetup path is invalid."
+        Add-UpdateOutput -Text "Update cancelled or winSetup path is invalid."
     }
 }
