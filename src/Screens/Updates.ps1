@@ -347,13 +347,16 @@ function Invoke-SelectedUpdates {
         return
     }
 
-    # Collect marked items that have an available version
+    # Collect marked items -- choco/winget require a known available version,
+    # pipx tools are always eligible (pipx upgrade checks upstream itself)
     $selected = @()
     $itemCount = @($script:_UpdateItems).Count
     for ($i = 0; $i -lt $itemCount; $i++) {
         if ($lv.Source.IsMarked($i)) {
             $item = @($script:_UpdateItems)[$i]
-            if ($item -and $item.availableVersion -and $item.availableVersion -ne '') {
+            if (-not $item) { continue }
+            $hasVersion = $item.availableVersion -and $item.availableVersion -ne ''
+            if ($hasVersion -or $item.source -eq 'pipx') {
                 $selected += $item
             }
         }
