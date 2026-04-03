@@ -1,9 +1,9 @@
 # Development Phases
 
-## Phase 1 -- Shell and navigation (current)
+## Phase 1 -- Shell and navigation ✓ complete
 Layout, command bar, fuzzy autocomplete, first-run wizard, status dashboard.
 
-## Phase 2 -- Update management
+## Phase 2 -- Update management (current)
 Updates screen, choco/winget/pipx update status, streaming update output,
 elevation detection, update caching.
 
