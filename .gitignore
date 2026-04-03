@@ -1,0 +1,24 @@
+# winTerface user config
+**/.winTerface/
+
+# PowerShell
+*.psm1.bak
+*.ps1.bak
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# Temporary files
+*.tmp
+*.temp
+*.log
