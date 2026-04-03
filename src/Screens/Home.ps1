@@ -164,17 +164,27 @@ function Build-HomeScreen {
     if ($script:Colors.Header) { $tipsHeader.ColorScheme = $script:Colors.Header }
     $Container.Add($tipsHeader)
 
-    $tips = @(
-        "  Use arrow keys to navigate the menu, Enter to select."
-        "  Type / to open the command bar. Try /update, /profile, or /help."
-        "  Press F1 at any time for a full list of keybindings and commands."
-    )
-    for ($i = 0; $i -lt $tips.Count; $i++) {
-        $tipLabel = [Terminal.Gui.Label]::new($tips[$i])
-        $tipLabel.X = 0; $tipLabel.Y = $tipsY + 1 + $i
-        $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
-        $Container.Add($tipLabel)
-    }
+    $tip1 = [Terminal.Gui.Label]::new("  Use arrow keys to navigate the menu, Enter to select.")
+    $tip1.X = 0; $tip1.Y = $tipsY + 1; $tip1.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($tip1)
+
+    $tip2 = [Terminal.Gui.Label]::new("  Type / to open the command bar. Try /update, /profile, or /help.")
+    $tip2.X = 0; $tip2.Y = $tipsY + 2; $tip2.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($tip2)
+
+    # Split into two labels so [F1] can be yellow
+    $tip3pre = [Terminal.Gui.Label]::new("  Press ")
+    $tip3pre.X = 0; $tip3pre.Y = $tipsY + 3; $tip3pre.Width = 8
+    $Container.Add($tip3pre)
+
+    $tip3key = [Terminal.Gui.Label]::new("[F1]")
+    $tip3key.X = 8; $tip3key.Y = $tipsY + 3; $tip3key.Width = 4
+    if ($script:Colors.StatusWarn) { $tip3key.ColorScheme = $script:Colors.StatusWarn }
+    $Container.Add($tip3key)
+
+    $tip3rest = [Terminal.Gui.Label]::new(" at any time for a full list of keybindings and commands.")
+    $tip3rest.X = 12; $tip3rest.Y = $tipsY + 3; $tip3rest.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($tip3rest)
 
     # --- Inspirational quote (random on each load) ---
     $quote = Get-RandomQuote
