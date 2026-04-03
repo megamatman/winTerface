@@ -60,13 +60,23 @@ function Set-UpdateCache {
         if (-not (Test-Path $cacheDir)) {
             New-Item -Path $cacheDir -ItemType Directory -Force | Out-Null
         }
-        $json = $Data | ConvertTo-Json -Depth 10
+        # Strip PowerShell job metadata that Receive-Job injects
+        $timestamp = if ($Data.lastChecked -is [DateTime]) {
+            $Data.lastChecked.ToString('o')
+        } else {
+            "$($Data.lastChecked)"
+        }
+        $clean = @{
+            lastChecked = $timestamp
+            updates     = @($Data.updates)
+        }
+        $json = $clean | ConvertTo-Json -Depth 10
         Set-Content -Path $cachePath -Value $json -Encoding UTF8 -ErrorAction Stop
 
         # Also update config.json timestamp
         $config = Get-WinTerfaceConfig
         if ($config) {
-            $config.lastUpdateCheck = $Data.lastChecked
+            $config.lastUpdateCheck = $timestamp
             Set-WinTerfaceConfig -Config $config
         }
     }
@@ -92,8 +102,13 @@ function Get-LastUpdateCheck {
     }
 
     try {
-        $lastCheck = [DateTime]::Parse($cache.lastChecked)
-        $elapsed   = (Get-Date) - $lastCheck
+        # Handle both DateTime objects (from ConvertFrom-Json) and ISO strings
+        $lastCheck = if ($cache.lastChecked -is [DateTime]) {
+            $cache.lastChecked
+        } else {
+            [DateTimeOffset]::Parse($cache.lastChecked).LocalDateTime
+        }
+        $elapsed = (Get-Date) - $lastCheck
 
         if ($elapsed.TotalMinutes -lt 1)  { return 'Just now' }
         if ($elapsed.TotalMinutes -lt 60) { return "$([int]$elapsed.TotalMinutes) minutes ago" }
@@ -116,9 +131,13 @@ function Test-UpdateCheckNeeded {
     if (-not $cache -or -not $cache.lastChecked) { return $true }
 
     try {
-        $lastCheck = [DateTime]::Parse($cache.lastChecked)
-        $config    = Get-WinTerfaceConfig
-        $interval  = if ($config -and $config.updateCheckIntervalHours) {
+        $lastCheck = if ($cache.lastChecked -is [DateTime]) {
+            $cache.lastChecked
+        } else {
+            [DateTimeOffset]::Parse($cache.lastChecked).LocalDateTime
+        }
+        $config   = Get-WinTerfaceConfig
+        $interval = if ($config -and $config.updateCheckIntervalHours) {
             $config.updateCheckIntervalHours
         } else { 24 }
         return ((Get-Date) - $lastCheck).TotalHours -ge $interval
@@ -148,7 +167,9 @@ function Get-AvailableUpdateCount {
         return @{ Status = 'Unknown'; Count = 0; Message = 'Run /check-for-updates' }
     }
 
-    $count = @($cache.updates).Count
+    $count = @($cache.updates | Where-Object {
+        $_.availableVersion -and $_.availableVersion -ne ''
+    }).Count
     if ($count -eq 0) {
         return @{ Status = 'UpToDate'; Count = 0; Message = 'Up to date' }
     }

@@ -58,13 +58,15 @@ function Build-UpdatesScreen {
         if ($script:Colors.StatusOk) { $msgLabel.ColorScheme = $script:Colors.StatusOk }
         $Container.Add($msgLabel)
 
-        $escHint = [Terminal.Gui.Label]::new("  Press Escape to return to the home screen.")
+        $escHint = [Terminal.Gui.Label]::new("  Press Escape to return to the home screen.  [F5] Refresh")
         $escHint.X = 0; $escHint.Y = 5
         $escHint.Width = [Terminal.Gui.Dim]::Fill()
+        $escHint.CanFocus = $true
         if ($script:Colors.StatusWarn) { $escHint.ColorScheme = $script:Colors.StatusWarn }
         $Container.Add($escHint)
 
-        Add-OutputPane -Container $Container -Y 7
+        $script:Layout.MenuList = $null
+        $escHint.SetFocus()
         return
     }
 
