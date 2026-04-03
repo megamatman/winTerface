@@ -141,8 +141,14 @@ function Build-ToolsScreen {
             $e.Handled = $true; return
         }
 
-        # F5 -- Refresh inventory
+        # F5 -- Refresh inventory. Clean up any previous job first so
+        # Get-ToolInventory's guard doesn't bail out.
         if ($key -eq [Terminal.Gui.Key]::F5) {
+            if ($script:ToolInventoryJob) {
+                try { Stop-Job $script:ToolInventoryJob -ErrorAction SilentlyContinue } catch {}
+                try { Remove-Job $script:ToolInventoryJob -Force -ErrorAction SilentlyContinue } catch {}
+                $script:ToolInventoryJob = $null
+            }
             $script:ToolInventoryData = $null
             Get-ToolInventory
             Add-ToolsOutput -Text "Scanning tools..."
