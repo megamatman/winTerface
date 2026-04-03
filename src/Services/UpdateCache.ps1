@@ -190,12 +190,15 @@ function Start-BackgroundUpdateCheck {
         $winget = Get-WingetUpdates
         $pipx   = Get-PipxTools
 
-        # Normalise pipx entries (they lack AvailableVersion)
+        # Check PyPI for available versions of each pipx tool
         $pipxNorm = foreach ($t in $pipx) {
+            $pypiInfo = Get-PipxUpdateAvailable -Package $t.Name
+            $avail = if ($pypiInfo -and $pypiInfo.UpdateAvailable) { $pypiInfo.Latest } else { '' }
+            $current = if ($pypiInfo) { $pypiInfo.Installed } else { $t.CurrentVersion }
             @{
                 name             = $t.Name
-                currentVersion   = $t.CurrentVersion
-                availableVersion = ''
+                currentVersion   = $current
+                availableVersion = $avail
                 source           = 'pipx'
                 packageId        = $t.Name
             }

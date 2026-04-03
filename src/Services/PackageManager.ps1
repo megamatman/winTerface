@@ -187,6 +187,49 @@ function Get-PipxTools {
     }
 }
 
+function Get-PipxUpdateAvailable {
+    <#
+    .SYNOPSIS
+        Checks PyPI for the latest version of a pipx-installed package.
+    .DESCRIPTION
+        Uses pipx runpip to get the installed version and the PyPI JSON API
+        to get the latest release version.  Never throws.
+    .PARAMETER Package
+        The package name to check.
+    .OUTPUTS
+        [hashtable] @{ Package; Installed; Latest; UpdateAvailable }
+        Returns $null if the check cannot be performed.
+    #>
+    param([string]$Package)
+
+    try {
+        # Installed version via pipx's own pip
+        $showOutput = & pipx runpip $Package show $Package 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $showOutput) { return $null }
+
+        $installed = $showOutput |
+            Where-Object { $_ -match '^Version:' } |
+            ForEach-Object { ($_ -split '\s+', 2)[1].Trim() } |
+            Select-Object -First 1
+        if (-not $installed) { return $null }
+
+        # Latest version from PyPI
+        $pypi = Invoke-RestMethod "https://pypi.org/pypi/$Package/json" -ErrorAction Stop
+        $latest = $pypi.info.version
+        if (-not $latest) { return $null }
+
+        return @{
+            Package         = $Package
+            Installed       = $installed
+            Latest          = $latest
+            UpdateAvailable = $installed -ne $latest
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Package search
 # ---------------------------------------------------------------------------
