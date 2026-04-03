@@ -331,14 +331,30 @@ function Invoke-SelectedUpdates {
         return
     }
 
+    # Guard against null references before accessing methods
+    if (-not $ListView -or -not $ListView.Source) {
+        Append-UpdateOutput -Text "Cannot read selections -- list view unavailable."
+        return
+    }
+    if (-not $script:_UpdateItems) {
+        Append-UpdateOutput -Text "No update data loaded."
+        return
+    }
+
     # Collect marked items that have an available version
     $selected = @()
-    for ($i = 0; $i -lt $script:_UpdateItems.Count; $i++) {
-        if ($ListView.Source.IsMarked($i)) {
-            $item = $script:_UpdateItems[$i]
-            if ($item.availableVersion -and $item.availableVersion -ne '') {
-                $selected += $item
+    $itemCount = @($script:_UpdateItems).Count
+    for ($i = 0; $i -lt $itemCount; $i++) {
+        try {
+            if ($ListView.Source.IsMarked($i)) {
+                $item = @($script:_UpdateItems)[$i]
+                if ($item -and $item.availableVersion -and $item.availableVersion -ne '') {
+                    $selected += $item
+                }
             }
+        }
+        catch {
+            Append-UpdateOutput -Text "Warning: could not read mark for item $i"
         }
     }
 
@@ -350,8 +366,10 @@ function Invoke-SelectedUpdates {
     # Clear output
     $script:UpdateOutputText = ''
     if ($script:UpdateOutputView) {
-        $script:UpdateOutputView.Text = ''
-        $script:UpdateOutputView.SetNeedsDisplay()
+        try {
+            $script:UpdateOutputView.Text = ''
+            $script:UpdateOutputView.SetNeedsDisplay()
+        } catch {}
     }
 
     $started = Start-PackageUpdateQueue -Packages $selected
