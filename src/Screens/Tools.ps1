@@ -286,30 +286,33 @@ function Invoke-ToolInstallAction {
 
     $script:ToolActionJob = Start-Job -ScriptBlock {
         param($winsetup, $toolName, $mgr, $cmd)
-
-        # Try -InstallTool first (works for tools with an Install-* function)
-        $setupScript = Join-Path $winsetup 'Setup-DevEnvironment.ps1'
-        if (Test-Path $setupScript) {
-            # Quick check: does the function exist in the file?
-            $content = Get-Content $setupScript -Raw
-            $safeName = $toolName -replace '[^a-zA-Z0-9]', ''
-            if ($content -match "function Install-$safeName") {
-                & $setupScript -InstallTool $toolName 2>&1
-                return
+        try {
+            # Try -InstallTool first (works for tools with an Install-* function)
+            $setupScript = Join-Path $winsetup 'Setup-DevEnvironment.ps1'
+            if (Test-Path $setupScript) {
+                # Quick check: does the function exist in the file?
+                $content = Get-Content $setupScript -Raw
+                $safeName = $toolName -replace '[^a-zA-Z0-9]', ''
+                if ($content -match "function Install-$safeName") {
+                    & $setupScript -InstallTool $toolName 2>&1
+                    return
+                }
             }
-        }
 
-        # Fallback: install directly via package manager
-        Write-Host "No Install-$toolName function found. Installing via $mgr directly."
-        switch ($mgr) {
-            'choco'   { choco install $cmd -y 2>&1 }
-            'winget'  { winget install $cmd --silent --accept-package-agreements --accept-source-agreements 2>&1 }
-            'pipx'    { pipx install $cmd 2>&1 }
-            'pip'     { pip install --user $cmd 2>&1 }
-            default   { Write-Host "No install handler for manager: $mgr" }
+            # Fallback: install directly via package manager
+            Write-Host "No Install-$toolName function found. Installing via $mgr directly."
+            switch ($mgr) {
+                'choco'   { choco install $cmd -y 2>&1 }
+                'winget'  { winget install $cmd --silent --accept-package-agreements --accept-source-agreements 2>&1 }
+                'pipx'    { pipx install $cmd 2>&1 }
+                'pip'     { pip install --user $cmd 2>&1 }
+                default   { Write-Host "No install handler for manager: $mgr" }
+            }
+            if ($LASTEXITCODE -eq 0) { Write-Host "$toolName installed." }
+            else { Write-Host "$toolName install may have failed (exit code: $LASTEXITCODE)" }
+        } catch {
+            Write-Error "Job failed: $_"
         }
-        if ($LASTEXITCODE -eq 0) { Write-Host "$toolName installed." }
-        else { Write-Host "$toolName install may have failed (exit code: $LASTEXITCODE)" }
     } -ArgumentList $env:WINSETUP, $name, $manager, $command
 }
 
@@ -331,7 +334,11 @@ function Invoke-ToolUpdateAction {
 
     $script:ToolActionJob = Start-Job -ScriptBlock {
         param($scriptPath, $toolName)
-        & $scriptPath -Package $toolName 2>&1
+        try {
+            & $scriptPath -Package $toolName 2>&1
+        } catch {
+            Write-Error "Job failed: $_"
+        }
     } -ArgumentList $updateScript, $t.Name.ToLower()
 }
 
@@ -382,9 +389,13 @@ function Invoke-ToolRemoveAction {
     $wtPath = $script:WinTerfaceRoot
     $script:ToolActionJob = Start-Job -ScriptBlock {
         param($scriptPath, $toolName, $keep, $winterface)
-        $env:WINTERFACE = $winterface
-        if ($keep) { & $scriptPath -Tool $toolName -KeepFiles 2>&1 }
-        else       { & $scriptPath -Tool $toolName 2>&1 }
+        try {
+            $env:WINTERFACE = $winterface
+            if ($keep) { & $scriptPath -Tool $toolName -KeepFiles 2>&1 }
+            else       { & $scriptPath -Tool $toolName 2>&1 }
+        } catch {
+            Write-Error "Job failed: $_"
+        }
     } -ArgumentList $uninstallScript, $t.Name.ToLower(), $keepFiles, $wtPath
 }
 

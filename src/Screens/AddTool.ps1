@@ -222,14 +222,22 @@ function Start-WizardSearch {
 
     $script:ChocoSearchJob = Start-Job -ScriptBlock {
         param($sp, $term)
-        . $sp
-        Search-ChocolateyPackage -Name $term
+        try {
+            . $sp
+            Search-ChocolateyPackage -Name $term
+        } catch {
+            Write-Error "Job failed: $_"
+        }
     } -ArgumentList $pkgMgrScript, $SearchTerm
 
     $script:WingetSearchJob = Start-Job -ScriptBlock {
         param($sp, $term)
-        . $sp
-        Search-WingetPackage -Name $term
+        try {
+            . $sp
+            Search-WingetPackage -Name $term
+        } catch {
+            Write-Error "Job failed: $_"
+        }
     } -ArgumentList $pkgMgrScript, $SearchTerm
 
     $script:WizardStep = 'Searching'
@@ -670,7 +678,11 @@ function Invoke-WizardConfirm {
                 Add-ToolsOutput -Text "Installing $toolName..."
                 $script:ToolActionJob = Start-Job -ScriptBlock {
                     param($scriptPath, $name)
-                    & $scriptPath -InstallTool $name 2>&1
+                    try {
+                        & $scriptPath -InstallTool $name 2>&1
+                    } catch {
+                        Write-Error "Job failed: $_"
+                    }
                 } -ArgumentList $setupScript, $toolName
             }
         } else {

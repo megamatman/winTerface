@@ -215,41 +215,45 @@ function Start-BackgroundUpdateCheck {
     $script:UpdateCheckState = 'Checking'
     $script:UpdateCheckJob   = Start-Job -ScriptBlock {
         param($scriptPath)
-        . $scriptPath
+        try {
+            . $scriptPath
 
-        $choco  = Get-ChocoUpdates
-        $winget = Get-WingetUpdates
-        $pipx   = Get-PipxTools
+            $choco  = Get-ChocoUpdates
+            $winget = Get-WingetUpdates
+            $pipx   = Get-PipxTools
 
-        # Only include pipx tools that actually have an update on PyPI
-        $pipxNorm = foreach ($t in $pipx) {
-            $pypiInfo = Get-PipxUpdateAvailable -Package $t.Name
-            if ($pypiInfo -and $pypiInfo.UpdateAvailable) {
-                @{
-                    name             = $t.Name
-                    currentVersion   = $pypiInfo.Installed
-                    availableVersion = $pypiInfo.Latest
-                    source           = 'pipx'
-                    packageId        = $t.Name
+            # Only include pipx tools that actually have an update on PyPI
+            $pipxNorm = foreach ($t in $pipx) {
+                $pypiInfo = Get-PipxUpdateAvailable -Package $t.Name
+                if ($pypiInfo -and $pypiInfo.UpdateAvailable) {
+                    @{
+                        name             = $t.Name
+                        currentVersion   = $pypiInfo.Installed
+                        availableVersion = $pypiInfo.Latest
+                        source           = 'pipx'
+                        packageId        = $t.Name
+                    }
                 }
             }
-        }
 
-        $allUpdates = @()
-        foreach ($u in @($choco) + @($winget)) {
-            $allUpdates += @{
-                name             = $u.Name
-                currentVersion   = $u.CurrentVersion
-                availableVersion = $u.AvailableVersion
-                source           = $u.Source
-                packageId        = $u.PackageId
+            $allUpdates = @()
+            foreach ($u in @($choco) + @($winget)) {
+                $allUpdates += @{
+                    name             = $u.Name
+                    currentVersion   = $u.CurrentVersion
+                    availableVersion = $u.AvailableVersion
+                    source           = $u.Source
+                    packageId        = $u.PackageId
+                }
             }
-        }
-        $allUpdates += @($pipxNorm)
+            $allUpdates += @($pipxNorm)
 
-        return @{
-            lastChecked = (Get-Date).ToString('o')
-            updates     = $allUpdates
+            return @{
+                lastChecked = (Get-Date).ToString('o')
+                updates     = $allUpdates
+            }
+        } catch {
+            Write-Error "Job failed: $_"
         }
     } -ArgumentList $pkgMgrScript
 }

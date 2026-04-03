@@ -302,7 +302,11 @@ function Invoke-WinSetupUpdate {
     # Launch the job
     $script:UpdateRunJob       = Start-Job -ScriptBlock {
         param($scriptPath)
-        & $scriptPath 2>&1
+        try {
+            & $scriptPath 2>&1
+        } catch {
+            Write-Error "Job failed: $_"
+        }
     } -ArgumentList $updateScript
     $script:UpdateRunStartTime = Get-Date
     $script:IsQueuedUpdate     = $false
@@ -362,7 +366,11 @@ function Start-NextPackageUpdate {
     $updateScript = Join-Path $env:WINSETUP 'Update-DevEnvironment.ps1'
     $script:UpdateRunJob       = Start-Job -ScriptBlock {
         param($scriptPath, $packageName)
-        & $scriptPath -Package $packageName 2>&1
+        try {
+            & $scriptPath -Package $packageName 2>&1
+        } catch {
+            Write-Error "Job failed: $_"
+        }
     } -ArgumentList $updateScript, $pkg.name
     $script:UpdateRunStartTime = Get-Date
 }
@@ -516,8 +524,12 @@ function Invoke-ProfileRedeploy {
     $profilePath = $PROFILE
     $script:ProfileRedeployJob = Start-Job -ScriptBlock {
         param($scriptPath, $prof)
-        $global:PROFILE = $prof
-        & $scriptPath 2>&1
+        try {
+            $global:PROFILE = $prof
+            & $scriptPath 2>&1
+        } catch {
+            Write-Error "Job failed: $_"
+        }
     } -ArgumentList $applyScript, $profilePath
 
     return $true
@@ -613,40 +625,44 @@ function Get-ToolInventory {
 
     $script:ToolInventoryJob = Start-Job -ScriptBlock {
         param($toolList)
-        $results = @()
-        foreach ($t in $toolList) {
-            $found   = $false
-            $version = 'not found'
-            $path    = ''
-            try {
-                $cmd = Get-Command $t.Command -ErrorAction SilentlyContinue
-                if ($cmd) {
-                    $found = $true
-                    $path  = $cmd.Source
-                    try {
-                        $verOut = & $t.Command --version 2>$null | Select-Object -First 1
-                        if ($verOut -and "$verOut" -match '(\d+\.\d+[\.\d]*)') {
-                            $version = $matches[1]
-                        } elseif ($verOut) {
-                            $version = ("$verOut").Trim().Substring(0,
-                                [Math]::Min(("$verOut").Trim().Length, 30))
-                        } else {
-                            $version = 'installed'
-                        }
-                    } catch { $version = 'installed' }
+        try {
+            $results = @()
+            foreach ($t in $toolList) {
+                $found   = $false
+                $version = 'not found'
+                $path    = ''
+                try {
+                    $cmd = Get-Command $t.Command -ErrorAction SilentlyContinue
+                    if ($cmd) {
+                        $found = $true
+                        $path  = $cmd.Source
+                        try {
+                            $verOut = & $t.Command --version 2>$null | Select-Object -First 1
+                            if ($verOut -and "$verOut" -match '(\d+\.\d+[\.\d]*)') {
+                                $version = $matches[1]
+                            } elseif ($verOut) {
+                                $version = ("$verOut").Trim().Substring(0,
+                                    [Math]::Min(("$verOut").Trim().Length, 30))
+                            } else {
+                                $version = 'installed'
+                            }
+                        } catch { $version = 'installed' }
+                    }
+                } catch {}
+
+                $status = if (-not $found) { 'Error' }
+                          elseif ($version -eq 'installed') { 'Warn' }
+                          else { 'Ok' }
+
+                $results += @{
+                    Name = $t.Name; Command = $t.Command; Manager = $t.Manager
+                    Desc = $t.Desc; Version = $version; Path = $path; Status = $status
                 }
-            } catch {}
-
-            $status = if (-not $found) { 'Error' }
-                      elseif ($version -eq 'installed') { 'Warn' }
-                      else { 'Ok' }
-
-            $results += @{
-                Name = $t.Name; Command = $t.Command; Manager = $t.Manager
-                Desc = $t.Desc; Version = $version; Path = $path; Status = $status
             }
+            return $results
+        } catch {
+            Write-Error "Job failed: $_"
         }
-        return $results
     } -ArgumentList @(,$tools)
 }
 
