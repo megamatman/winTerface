@@ -195,15 +195,19 @@ function Get-ModifiedSetupContent {
             continue
         }
 
-        # Insert function definition before outcome tracking
-        if (-not $funcInserted -and $line -match '# === Outcome tracking ===') {
+        # Insert function definition before the main execution block's outcome
+        # tracking. Match only the unindented line (column 0) to skip the
+        # -InstallTool short-circuit block which has an indented copy.
+        if (-not $funcInserted -and $line -match '^#\s*Outcome tracking') {
             $result.Add($funcCode)
             $result.Add('')
             $funcInserted = $true
         }
 
-        # Insert function call before Write-Summary
-        if (-not $callInserted -and $line -match '^\s*Write-Summary') {
+        # Insert function call before Write-Summary in the main execution
+        # block. Match only the unindented Write-Summary (column 0) to skip
+        # the copy inside the -InstallTool short-circuit block.
+        if (-not $callInserted -and $line -match '^Write-Summary') {
             $result.Add($funcCall)
             $result.Add('')
             $callInserted = $true
