@@ -268,7 +268,9 @@ function Add-ToolsOutput {
 function Invoke-ToolInstallAction {
     <#
     .SYNOPSIS
-        Installs a missing tool via Setup-DevEnvironment.ps1 -InstallTool.
+        Installs a missing tool. Tries -InstallTool first, falls back to
+        a direct package manager command if the Install-* function doesn't
+        exist (e.g. after an uninstall removed it from Setup-DevEnvironment.ps1).
     #>
     param([int]$Index)
     if ($script:ToolActionJob) { Add-ToolsOutput -Text "An action is already running."; return }
@@ -278,13 +280,37 @@ function Invoke-ToolInstallAction {
     $script:ToolsOutputText = ''
     Add-ToolsOutput -Text "Installing $($t.Name)..."
 
-    $setupScript = Join-Path $env:WINSETUP 'Setup-DevEnvironment.ps1'
-    if (-not (Test-Path $setupScript)) { Add-ToolsOutput -Text "Setup-DevEnvironment.ps1 not found."; return }
+    $manager = $t.Manager
+    $command = $t.Command
+    $name    = $t.Name
 
     $script:ToolActionJob = Start-Job -ScriptBlock {
-        param($scriptPath, $toolName)
-        & $scriptPath -InstallTool $toolName 2>&1
-    } -ArgumentList $setupScript, $t.Name
+        param($winsetup, $toolName, $mgr, $cmd)
+
+        # Try -InstallTool first (works for tools with an Install-* function)
+        $setupScript = Join-Path $winsetup 'Setup-DevEnvironment.ps1'
+        if (Test-Path $setupScript) {
+            # Quick check: does the function exist in the file?
+            $content = Get-Content $setupScript -Raw
+            $safeName = $toolName -replace '[^a-zA-Z0-9]', ''
+            if ($content -match "function Install-$safeName") {
+                & $setupScript -InstallTool $toolName 2>&1
+                return
+            }
+        }
+
+        # Fallback: install directly via package manager
+        Write-Host "No Install-$toolName function found. Installing via $mgr directly."
+        switch ($mgr) {
+            'choco'   { choco install $cmd -y 2>&1 }
+            'winget'  { winget install $cmd --silent --accept-package-agreements --accept-source-agreements 2>&1 }
+            'pipx'    { pipx install $cmd 2>&1 }
+            'pip'     { pip install --user $cmd 2>&1 }
+            default   { Write-Host "No install handler for manager: $mgr" }
+        }
+        if ($LASTEXITCODE -eq 0) { Write-Host "$toolName installed." }
+        else { Write-Host "$toolName install may have failed (exit code: $LASTEXITCODE)" }
+    } -ArgumentList $env:WINSETUP, $name, $manager, $command
 }
 
 function Invoke-ToolUpdateAction {
