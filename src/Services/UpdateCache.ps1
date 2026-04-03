@@ -257,7 +257,10 @@ function Update-BackgroundCheckStatus {
                 $script:Layout.MenuList.SelectedItem = $saved
             }
         }
-        elseif ($script:CurrentScreen -eq 'Updates' -and -not $script:UpdateRunJob) {
+        elseif ($script:CurrentScreen -eq 'Updates' -and
+               -not $script:UpdateRunJob -and
+               -not $script:IsQueuedUpdate -and
+               -not $script:UpdateFlowActive) {
             Switch-Screen -ScreenName 'Updates'
         }
     }

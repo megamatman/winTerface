@@ -134,14 +134,28 @@ function Build-UpdatesScreen {
 
         # 'u' / 'U' -- update selected tools individually
         if ([int]$key -eq [int][char]'u' -or [int]$key -eq [int][char]'U') {
-            Invoke-SelectedUpdates -ListView $updateList
+            try {
+                $script:UpdateFlowActive = $true
+                Invoke-SelectedUpdates -ListView $updateList
+            }
+            catch {
+                try { Append-UpdateOutput -Text "Error: $_" } catch {}
+            }
+            finally { $script:UpdateFlowActive = $false }
             $eventArgs.Handled = $true
             return
         }
 
         # Ctrl+A -- full update (Update-DevEnvironment.ps1 with no args)
         if ([int]$key -eq 1) {   # ControlA = 1
-            Invoke-FullUpdate
+            try {
+                $script:UpdateFlowActive = $true
+                Invoke-FullUpdate
+            }
+            catch {
+                try { Append-UpdateOutput -Text "Error: $_" } catch {}
+            }
+            finally { $script:UpdateFlowActive = $false }
             $eventArgs.Handled = $true
             return
         }

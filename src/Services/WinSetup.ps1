@@ -8,6 +8,7 @@ $script:UpdatePackageQueue   = @()
 $script:UpdatePackageIndex   = -1
 $script:UpdatePackageResults = @{}
 $script:IsQueuedUpdate       = $false
+$script:UpdateFlowActive     = $false   # true while elevation dialog or update setup is running
 
 # Profile management state
 $script:ProfileRedeployJob    = $null
@@ -232,7 +233,12 @@ function Show-ElevationWarning {
         [Terminal.Gui.Application]::RequestStop()
     })
 
-    [Terminal.Gui.Application]::Run($dialog)
+    try {
+        [Terminal.Gui.Application]::Run($dialog)
+    }
+    catch {
+        return $false
+    }
     return $script:_ElevWarningResult
 }
 
