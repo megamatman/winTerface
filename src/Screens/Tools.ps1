@@ -342,6 +342,10 @@ function Invoke-ToolRemoveAction {
     if ($script:_RemoveChoice -eq 'cancel') { return }
 
     $script:ToolsOutputText = ''
+    # Store which tool is being removed so we can clean the in-memory
+    # KnownTools array when the job completes (disk is handled by
+    # Uninstall-Tool.ps1 Step 5, but the running process keeps stale data).
+    $script:_RemovingToolName = $t.Name
     Add-ToolsOutput -Text "Removing $($t.Name)..."
 
     $uninstallScript = Join-Path $env:WINSETUP 'Uninstall-Tool.ps1'

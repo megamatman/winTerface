@@ -385,6 +385,15 @@ function Invoke-BackgroundPoll {
             try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
             $script:ToolActionJob = $null
 
+            # If this was an uninstall, remove the tool from the in-memory
+            # KnownTools array. The file on disk was already updated by
+            # Uninstall-Tool.ps1 Step 5, but the running process has stale data.
+            if ($script:_RemovingToolName) {
+                $script:KnownTools = @($script:KnownTools |
+                    Where-Object { $_.Name -ne $script:_RemovingToolName })
+                $script:_RemovingToolName = $null
+            }
+
             # Refresh tool inventory after action completes
             $script:ToolInventoryData = $null
             Get-ToolInventory
