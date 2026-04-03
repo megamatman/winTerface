@@ -264,20 +264,36 @@ function Invoke-BackgroundPoll {
 
         # Detect completion
         if ($job.State -ne 'Running') {
-            $duration    = (Get-Date) - $script:UpdateRunStartTime
-            $durationStr = '{0:mm\:ss}' -f $duration
-            $exitMsg     = if ($job.State -eq 'Completed') { 'succeeded' } else { "finished ($($job.State))" }
-
-            Append-UpdateOutput -Text ''
-            Append-UpdateOutput -Text "--- Update $exitMsg  ($durationStr) ---"
-
             try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
             $script:UpdateRunJob       = $null
             $script:UpdateRunStartTime = $null
 
-            # Refresh the update cache so the status panel picks up new state
-            Start-BackgroundUpdateCheck -Force
+            if ($script:IsQueuedUpdate) {
+                # Record per-tool result and advance the queue
+                $currentPkg = $script:UpdatePackageQueue[$script:UpdatePackageIndex]
+                $status = if ($job.State -eq 'Completed') { 'success' } else { 'failed' }
+                $script:UpdatePackageResults[$currentPkg.name] = $status
+                Update-UpdateListItemStatus -Name $currentPkg.name -Status $status
+
+                $script:UpdatePackageIndex++
+                if ($script:UpdatePackageIndex -lt $script:UpdatePackageQueue.Count) {
+                    Start-NextPackageUpdate
+                } else {
+                    Complete-PackageUpdateQueue
+                }
+            } else {
+                # Full update completed
+                $exitMsg = if ($job.State -eq 'Completed') { 'succeeded' } else { "finished ($($job.State))" }
+                Append-UpdateOutput -Text ''
+                Append-UpdateOutput -Text "--- Update $exitMsg ---"
+                Start-BackgroundUpdateCheck -Force
+            }
         }
+    }
+
+    # 3 -- wizard search jobs
+    if ($script:ChocoSearchJob -or $script:WingetSearchJob) {
+        Update-SearchJobStatus
     }
 }
 

@@ -188,31 +188,115 @@ function Get-PipxTools {
 }
 
 # ---------------------------------------------------------------------------
-# Search stubs (Phase 3)
+# Package search
 # ---------------------------------------------------------------------------
 
 function Search-ChocolateyPackage {
     <#
     .SYNOPSIS
         Searches for packages in the Chocolatey repository.
+    .DESCRIPTION
+        Runs 'choco search <name> -r' and parses the pipe-delimited output.
+        Never throws.
     .PARAMETER Name
         The package name to search for.
     .OUTPUTS
-        [array] Search results. Stub -- returns empty (Phase 3).
+        [array] Each element: @{ Name; Version; PackageId; Source = 'choco' }
     #>
     param([string]$Name)
-    return @()
+
+    try {
+        if (-not (Get-Command choco -ErrorAction SilentlyContinue)) { return @() }
+        if ([string]::IsNullOrWhiteSpace($Name)) { return @() }
+
+        $raw = & choco search $Name -r --no-progress 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $raw) { return @() }
+
+        $results = @()
+        foreach ($line in $raw) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $parts = $line -split '\|'
+            if ($parts.Count -lt 2) { continue }
+
+            $results += @{
+                Name      = $parts[0]
+                Version   = $parts[1]
+                PackageId = $parts[0]
+                Source    = 'choco'
+            }
+        }
+        return $results
+    }
+    catch {
+        Write-Warning "Chocolatey search failed: $_"
+        return @()
+    }
 }
 
 function Search-WingetPackage {
     <#
     .SYNOPSIS
         Searches for packages in the winget repository.
+    .DESCRIPTION
+        Runs 'winget search <name>' and parses column-based output using
+        the header line to detect column positions.  Never throws.
     .PARAMETER Name
         The package name to search for.
     .OUTPUTS
-        [array] Search results. Stub -- returns empty (Phase 3).
+        [array] Each element: @{ Name; Version; PackageId; Source = 'winget' }
     #>
     param([string]$Name)
-    return @()
+
+    try {
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { return @() }
+        if ([string]::IsNullOrWhiteSpace($Name)) { return @() }
+
+        $raw = & winget search $Name --accept-source-agreements --disable-interactivity 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $raw) { return @() }
+
+        $lines = @($raw) | ForEach-Object { "$_" }
+
+        # Find dash separator
+        $dashIdx = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^-{2,}') { $dashIdx = $i; break }
+        }
+        if ($dashIdx -lt 1) { return @() }
+
+        $header    = $lines[$dashIdx - 1]
+        $colId     = $header.IndexOf('Id')
+        $colVer    = $header.IndexOf('Version')
+        $colSource = $header.IndexOf('Source')
+        if ($colId -lt 0 -or $colVer -lt 0) { return @() }
+
+        $results = @()
+        for ($i = $dashIdx + 1; $i -lt $lines.Count; $i++) {
+            $line = $lines[$i]
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            if ($line -match '\d+\s+packages?\s+found') { continue }
+            if ($line.Length -lt $colVer) { continue }
+
+            $name    = $line.Substring(0, $colId).Trim()
+            $id      = $line.Substring($colId, $colVer - $colId).Trim()
+            $version = if ($colSource -gt 0 -and $line.Length -ge $colSource) {
+                $line.Substring($colVer, $colSource - $colVer).Trim()
+            } else {
+                $line.Substring($colVer).Trim()
+            }
+
+            if ([string]::IsNullOrWhiteSpace($name)) { continue }
+
+            $results += @{
+                Name      = $name
+                Version   = $version
+                PackageId = $id
+                Source    = 'winget'
+            }
+        }
+        return $results
+    }
+    catch {
+        Write-Warning "Winget search failed: $_"
+        return @()
+    }
 }

@@ -35,6 +35,7 @@ $script:WinTerfaceRoot    = $PSScriptRoot
 . (Join-Path $PSScriptRoot 'src' 'Services' 'WinSetup.ps1')
 . (Join-Path $PSScriptRoot 'src' 'Services' 'PackageManager.ps1')
 . (Join-Path $PSScriptRoot 'src' 'Services' 'UpdateCache.ps1')
+. (Join-Path $PSScriptRoot 'src' 'Services' 'ToolWriter.ps1')
 
 # Screens
 . (Join-Path $PSScriptRoot 'src' 'Screens' 'Home.ps1')

@@ -16,6 +16,12 @@ function Switch-Screen {
         [string]$ScreenName
     )
 
+    # Cleanup when leaving a screen
+    if ($script:CurrentScreen -eq 'AddTool' -and $ScreenName -ne 'AddTool') {
+        Stop-WizardSearchJobs
+        Reset-WizardState
+    }
+
     # Clear existing content
     $script:Layout.Content.RemoveAll()
 
@@ -59,6 +65,11 @@ function Invoke-GlobalKeyHandler {
             Hide-AutocompleteOverlay
             $script:Layout.CommandInput.Text = ""
             if ($script:Layout.MenuList) { $script:Layout.MenuList.SetFocus() }
+            return $true
+        }
+
+        if ($script:CurrentScreen -eq 'AddTool' -and $script:WizardStep -and $script:WizardStep -ne 'ChoosePath') {
+            Step-WizardBack
             return $true
         }
 

@@ -3,6 +3,12 @@
 $script:UpdateRunJob       = $null
 $script:UpdateRunStartTime = $null
 
+# Queued per-package update state
+$script:UpdatePackageQueue   = @()
+$script:UpdatePackageIndex   = -1
+$script:UpdatePackageResults = @{}
+$script:IsQueuedUpdate       = $false
+
 # ---------------------------------------------------------------------------
 # Path and status helpers
 # ---------------------------------------------------------------------------
@@ -197,6 +203,85 @@ function Invoke-WinSetupUpdate {
         & $scriptPath 2>&1
     } -ArgumentList $updateScript
     $script:UpdateRunStartTime = Get-Date
+    $script:IsQueuedUpdate     = $false
 
     return $true
+}
+
+# ---------------------------------------------------------------------------
+# Per-package update queue
+# ---------------------------------------------------------------------------
+
+function Start-PackageUpdateQueue {
+    <#
+    .SYNOPSIS
+        Initialises a queue of per-tool updates and starts the first one.
+    .DESCRIPTION
+        Each package is updated individually via Update-DevEnvironment.ps1
+        -Package <name>.  The 500 ms timer advances the queue as each job
+        completes.
+    .PARAMETER Packages
+        Array of hashtables, each with at least a 'name' key.
+    .OUTPUTS
+        [bool] True if the queue was started.
+    #>
+    param([array]$Packages)
+
+    if ($script:UpdateRunJob) { return $false }
+    if ($Packages.Count -eq 0) { return $false }
+
+    # Elevation check once for the whole batch
+    if (-not (Test-IsElevated)) {
+        if (-not (Show-ElevationWarning)) { return $false }
+    }
+    if (-not (Test-WinSetupPath)) { return $false }
+
+    $script:UpdatePackageQueue   = $Packages
+    $script:UpdatePackageIndex   = 0
+    $script:UpdatePackageResults = @{}
+    $script:IsQueuedUpdate       = $true
+
+    Start-NextPackageUpdate
+    return $true
+}
+
+function Start-NextPackageUpdate {
+    <#
+    .SYNOPSIS
+        Starts the background job for the current queue item.
+    #>
+    $pkg = $script:UpdatePackageQueue[$script:UpdatePackageIndex]
+
+    $sep = [string]::new([char]0x2500, 42)
+    Append-UpdateOutput -Text $sep
+    Append-UpdateOutput -Text " Updating $($pkg.name)..."
+    Append-UpdateOutput -Text $sep
+
+    $updateScript = Join-Path $env:WINSETUP 'Update-DevEnvironment.ps1'
+    $script:UpdateRunJob       = Start-Job -ScriptBlock {
+        param($scriptPath, $packageName)
+        & $scriptPath -Package $packageName 2>&1
+    } -ArgumentList $updateScript, $pkg.name
+    $script:UpdateRunStartTime = Get-Date
+}
+
+function Complete-PackageUpdateQueue {
+    <#
+    .SYNOPSIS
+        Called when all queued per-package updates are finished.
+    .DESCRIPTION
+        Shows a summary line and triggers a cache refresh.
+    #>
+    $succeeded = @($script:UpdatePackageResults.Values | Where-Object { $_ -eq 'success' }).Count
+    $failed    = @($script:UpdatePackageResults.Values | Where-Object { $_ -eq 'failed' }).Count
+
+    Append-UpdateOutput -Text ''
+    Append-UpdateOutput -Text "--- $succeeded updated, $failed failed ---"
+
+    $script:UpdatePackageQueue   = @()
+    $script:UpdatePackageIndex   = -1
+    $script:UpdatePackageResults = @{}
+    $script:IsQueuedUpdate       = $false
+
+    Start-BackgroundUpdateCheck -Force
 }
