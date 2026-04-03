@@ -510,10 +510,15 @@ function Invoke-ProfileRedeploy {
     if (-not (Test-Path $applyScript)) { return $false }
 
     $script:ProfileRedeployOutput = ''
+    # $PROFILE is not available inside Start-Job (-NoProfile). Pass it
+    # explicitly and set it in the job so Apply-PowerShellProfile.ps1
+    # knows where to deploy.
+    $profilePath = $PROFILE
     $script:ProfileRedeployJob = Start-Job -ScriptBlock {
-        param($scriptPath)
+        param($scriptPath, $prof)
+        $global:PROFILE = $prof
         & $scriptPath 2>&1
-    } -ArgumentList $applyScript
+    } -ArgumentList $applyScript, $profilePath
 
     return $true
 }
