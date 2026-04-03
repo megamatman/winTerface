@@ -63,24 +63,39 @@ function Build-UpdatesScreen {
         $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
         $Container.Add($tipLabel)
 
-        $escHint = [Terminal.Gui.Label]::new("  [F5] Refresh   [Esc] Back to home")
-        $escHint.X = 0; $escHint.Y = 7
-        $escHint.Width = [Terminal.Gui.Dim]::Fill()
-        $escHint.CanFocus = $true
-        if ($script:Colors.StatusWarn) { $escHint.ColorScheme = $script:Colors.StatusWarn }
+        # Use a single-item ListView so it receives focus and key events properly
+        $emptyOptions = [System.Collections.Generic.List[string]]::new()
+        $emptyOptions.Add("  [F5] Refresh   [Esc] Back to home")
+        $emptyList = [Terminal.Gui.ListView]::new($emptyOptions)
+        $emptyList.X = 0; $emptyList.Y = 7
+        $emptyList.Width = [Terminal.Gui.Dim]::Fill()
+        $emptyList.Height = 1
+        $emptyList.AllowsMarking = $false
+        if ($script:Colors.StatusWarn) { $emptyList.ColorScheme = $script:Colors.StatusWarn }
 
-        $escHint.add_KeyPress({
+        $emptyList.add_KeyPress({
             param($e)
-            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::F5) {
+            $key = $e.KeyEvent.Key
+
+            # F5 -- start check, set flag so timer refreshes the screen later
+            if ($key -eq [Terminal.Gui.Key]::F5) {
                 Start-BackgroundUpdateCheck -Force
-                Switch-Screen -ScreenName 'Updates'
+                $e.Handled = $true
+                return
+            }
+            # '/' -- jump to command bar
+            if ([int]$key -eq 47) {
+                $script:Layout.CommandInput.Text = '/'
+                $script:Layout.CommandInput.SetFocus()
+                $script:Layout.CommandInput.CursorPosition = 1
                 $e.Handled = $true
             }
         })
 
-        $Container.Add($escHint)
-        $script:Layout.MenuList = $null
-        $escHint.SetFocus()
+        $Container.Add($emptyList)
+        Add-OutputPane -Container $Container -Y 9
+        $script:Layout.MenuList = $emptyList
+        $emptyList.SetFocus()
         return
     }
 
@@ -179,10 +194,9 @@ function Build-UpdatesScreen {
             return
         }
 
-        # F5 -- refresh: start check and re-render to show "checking..." indicator
+        # F5 -- refresh: start background check (timer re-renders on completion)
         if ($key -eq [Terminal.Gui.Key]::F5) {
             Start-BackgroundUpdateCheck -Force
-            Switch-Screen -ScreenName 'Updates'
             $e.Handled = $true
             return
         }
