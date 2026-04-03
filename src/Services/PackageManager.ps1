@@ -192,8 +192,9 @@ function Get-PipxUpdateAvailable {
     .SYNOPSIS
         Checks PyPI for the latest version of a pipx-installed package.
     .DESCRIPTION
-        Uses pipx runpip to get the installed version and the PyPI JSON API
-        to get the latest release version.  Never throws.
+        Queries installed version via pipx runpip and latest from PyPI JSON API.
+        Populates real availableVersion for pipx tools in the background check,
+        replacing the blank '---' that pipx list alone provides.  Never throws.
     .PARAMETER Package
         The package name to check.
     .OUTPUTS

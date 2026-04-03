@@ -239,8 +239,10 @@ function Invoke-BackgroundPoll {
     .SYNOPSIS
         Polls all active background jobs.  Called by the 500 ms timer callback.
     .DESCRIPTION
-        Wrapped in try/catch so that an unhandled exception inside any poll
-        section can never crash Terminal.Gui's main loop.
+        Unhandled exceptions inside a .NET timer delegate propagate through
+        Application.Run() and crash the process. All poll logic is wrapped
+        in try/catch. $job.State is captured before Remove-Job -- accessing
+        State on a disposed job object throws.
     #>
     try {
 

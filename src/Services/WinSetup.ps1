@@ -8,7 +8,10 @@ $script:UpdatePackageQueue   = @()
 $script:UpdatePackageIndex   = -1
 $script:UpdatePackageResults = @{}
 $script:IsQueuedUpdate       = $false
-$script:UpdateFlowActive     = $false   # true while elevation dialog or update setup is running
+# Blocks screen rebuilds during the update flow. Without this, the 500ms
+# timer could call Switch-Screen('Updates') mid-dialog, destroying views
+# the key handler still holds references to.
+$script:UpdateFlowActive     = $false
 
 # Profile management state
 $script:ProfileRedeployJob    = $null
@@ -139,9 +142,9 @@ function Get-ProfileHealthStatus {
     .SYNOPSIS
         Lightweight profile health check using pattern matching.
     .DESCRIPTION
-        Reads $PROFILE and checks the expected section patterns directly.
-        Does NOT call Test-ProfileHealth (that function uses Write-Host
-        which corrupts Terminal.Gui rendering).
+        Do not call winSetup's Test-ProfileHealth here. It uses Write-Host
+        which corrupts Terminal.Gui's console driver. Pattern matching
+        directly against $PROFILE content avoids the collision.
     .OUTPUTS
         [hashtable] @{ Status = 'Ok'|'Warn'|'Error'; Message = string }
     #>

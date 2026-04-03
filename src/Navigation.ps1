@@ -121,8 +121,8 @@ function Register-CommandBarHandlers {
 
     # --- Key press on the command input ---
     $cmdInput.add_KeyPress({
-        param($eventArgs)
-        $key = $eventArgs.KeyEvent.Key
+        param($e)
+        $key = $e.KeyEvent.Key
 
         # Enter -- execute the command (or accept highlighted autocomplete)
         if ($key -eq [Terminal.Gui.Key]::Enter) {
@@ -144,7 +144,7 @@ function Register-CommandBarHandlers {
             $script:Layout.CommandInput.Text = ""
             Hide-AutocompleteOverlay
             if ($script:Layout.MenuList) { $script:Layout.MenuList.SetFocus() }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -160,7 +160,7 @@ function Register-CommandBarHandlers {
                 }
                 Hide-AutocompleteOverlay
             }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -169,7 +169,7 @@ function Register-CommandBarHandlers {
             $script:Layout.CommandInput.Text = ""
             Hide-AutocompleteOverlay
             if ($script:Layout.MenuList) { $script:Layout.MenuList.SetFocus() }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -180,7 +180,7 @@ function Register-CommandBarHandlers {
                 $list.SelectedItem = $list.SelectedItem - 1
                 $list.SetNeedsDisplay()
             }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -192,7 +192,7 @@ function Register-CommandBarHandlers {
                 $list.SelectedItem = $list.SelectedItem + 1
                 $list.SetNeedsDisplay()
             }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
     })

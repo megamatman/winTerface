@@ -12,9 +12,10 @@ Package manager search (choco + winget), guided wizard, diff preview,
 atomic file writes to winSetup config files. Individual per-tool updates
 via Update-DevEnvironment.ps1 -Package.
 
-## Phase 4 -- Profile management (current)
-Profile health detail view, section-level fix suggestions, drift detection,
-VS Code integration, profile redeployment with backup.
+## Phase 4 -- Profile management ✓ complete
+Profile health checks, drift detection, diff view, redeploy action.
+Post-phase: 14 stability and correctness fixes (Terminal.Gui crash
+prevention, cache correctness, pipx update support, UX improvements).
 
 ## Phase 5 -- Config management
 winTerface config screen, winSetup path management, per-tool config viewing.

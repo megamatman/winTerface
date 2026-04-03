@@ -63,7 +63,8 @@ function Build-UpdatesScreen {
         $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
         $Container.Add($tipLabel)
 
-        # Use a single-item ListView so it receives focus and key events properly
+        # Without a focusable view, keyboard events do not reach global handlers
+        # including Escape. A single-item ListView is used when no updates exist.
         $emptyOptions = [System.Collections.Generic.List[string]]::new()
         $emptyOptions.Add("  [F5] Check for updates   [Esc] Back to home")
         $emptyList = [Terminal.Gui.ListView]::new($emptyOptions)
@@ -148,13 +149,14 @@ function Build-UpdatesScreen {
     }
 
     # --- Key handlers ---
+    # PowerShell .NET event handler scriptblocks do not capture function-local
+    # variables. $updateList resolved to $null when key events fired.
+    # All event handlers reference $script:Layout.MenuList directly.
     $updateList.add_KeyPress({
         param($e)
         $key = $e.KeyEvent.Key
 
         # 'a' / 'A' -- toggle all marks
-        # NOTE: use $script:Layout.MenuList, not the local $updateList --
-        # .NET event scriptblocks cannot capture function-local variables.
         if ([int]$key -eq [int][char]'a' -or [int]$key -eq [int][char]'A') {
             $lv = $script:Layout.MenuList
             if ($lv -and $lv.Source) {
@@ -195,7 +197,9 @@ function Build-UpdatesScreen {
             return
         }
 
-        # F5 -- same as /check-for-updates
+        # F5 -- same as /check-for-updates. Do not call Switch-Screen here:
+        # it destroys the view that owns this event mid-dispatch, breaking
+        # the event system. The timer re-renders on completion instead.
         if ($key -eq [Terminal.Gui.Key]::F5) {
             Add-UpdateOutput -Text "Checking for updates..."
             Start-BackgroundUpdateCheck -Force

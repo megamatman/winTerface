@@ -10,6 +10,11 @@ winTerface removes the complexity of manually editing config files, checking for
 - **Microsoft.PowerShell.ConsoleGuiTools** module (Terminal.Gui based)
 - **winSetup** repository
 
+> **Note:** winTerface uses Terminal.Gui via ConsoleGuiTools. Certain patterns
+> -- nested `Application.Run`, `Write-Host` in callbacks, `Switch-Screen` from
+> key handlers -- are architectural constraints, not bugs. See
+> [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
 ## Installation
 
 1. Install the required PowerShell module:

@@ -185,17 +185,17 @@ function Build-WizardSearchInput {
     if ($script:Colors.CommandBar) { $tf.ColorScheme = $script:Colors.CommandBar }
 
     $tf.add_KeyPress({
-        param($eventArgs)
-        if ($eventArgs.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
+        param($e)
+        if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
             $term = $tf.Text.ToString().Trim()
             if ($term.Length -gt 0) {
                 Start-WizardSearch -SearchTerm $term
             }
-            $eventArgs.Handled = $true
+            $e.Handled = $true
         }
-        if ($eventArgs.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
+        if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
             Step-WizardBack
-            $eventArgs.Handled = $true
+            $e.Handled = $true
         }
     })
 
@@ -416,10 +416,10 @@ function Build-WizardReviewFields {
     })
 
     $actionList.add_KeyPress({
-        param($eventArgs)
-        if ($eventArgs.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
+        param($e)
+        if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
             Step-WizardBack
-            $eventArgs.Handled = $true
+            $e.Handled = $true
         }
     })
 
@@ -487,10 +487,10 @@ function Build-WizardGuidedStep {
         })
 
         $selList.add_KeyPress({
-            param($eventArgs)
-            if ($eventArgs.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
+            param($e)
+            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
                 Step-WizardBack
-                $eventArgs.Handled = $true
+                $e.Handled = $true
             }
         })
 
@@ -507,22 +507,22 @@ function Build-WizardGuidedStep {
         if ($script:Colors.CommandBar) { $tf.ColorScheme = $script:Colors.CommandBar }
 
         $tf.add_KeyPress({
-            param($eventArgs)
-            if ($eventArgs.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
+            param($e)
+            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
                 $val = $tf.Text.ToString().Trim()
                 if ($step.Required -and [string]::IsNullOrWhiteSpace($val)) {
                     # Don't advance if required and empty
-                    $eventArgs.Handled = $true
+                    $e.Handled = $true
                     return
                 }
                 $script:WizardData[$step.Key] = $val
                 $script:WizardStep = $step.Next
                 Switch-Screen -ScreenName 'AddTool'
-                $eventArgs.Handled = $true
+                $e.Handled = $true
             }
-            if ($eventArgs.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
+            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
                 Step-WizardBack
-                $eventArgs.Handled = $true
+                $e.Handled = $true
             }
         })
 
@@ -557,18 +557,18 @@ function Build-WizardConfirmation {
     if ($script:Colors.Base) { $tv.ColorScheme = $script:Colors.Base }
 
     $tv.add_KeyPress({
-        param($eventArgs)
-        $key = $eventArgs.KeyEvent.Key
+        param($e)
+        $key = $e.KeyEvent.Key
 
         # 'c' / 'C' -- confirm and write
         if ([int]$key -eq [int][char]'c' -or [int]$key -eq [int][char]'C') {
             Invoke-WizardConfirm
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
         if ($key -eq [Terminal.Gui.Key]::Esc) {
             Step-WizardBack
-            $eventArgs.Handled = $true
+            $e.Handled = $true
         }
     })
 

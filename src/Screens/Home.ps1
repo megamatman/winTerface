@@ -94,8 +94,8 @@ function Build-HomeScreen {
 
     # Enter navigates to the selected screen
     $menuList.add_OpenSelectedItem({
-        param($eventArgs)
-        $index = $eventArgs.Item
+        param($e)
+        $index = $e.Item
         if ($index -ge 0 -and $index -lt $script:HomeMenuItems.Count) {
             Switch-Screen -ScreenName $script:HomeMenuItems[$index].Screen
         }
@@ -103,14 +103,14 @@ function Build-HomeScreen {
 
     # '/' key jumps focus to the command bar
     $menuList.add_KeyPress({
-        param($eventArgs)
-        $keyValue = [int]$eventArgs.KeyEvent.Key
+        param($e)
+        $keyValue = [int]$e.KeyEvent.Key
         # ASCII 47 = '/'
         if ($keyValue -eq 47) {
             $script:Layout.CommandInput.Text = "/"
             $script:Layout.CommandInput.SetFocus()
             $script:Layout.CommandInput.CursorPosition = 1
-            $eventArgs.Handled = $true
+            $e.Handled = $true
         }
     })
 

@@ -60,7 +60,11 @@ function Set-UpdateCache {
         if (-not (Test-Path $cacheDir)) {
             New-Item -Path $cacheDir -ItemType Directory -Force | Out-Null
         }
-        # Strip PowerShell job metadata that Receive-Job injects
+        # Receive-Job injects PSComputerName, RunspaceId, PSShowComputerName into
+        # deserialized objects. Only lastChecked and updates are written to cache.
+        # Receive-Job returns DateTime objects. Round-tripping through
+        # [DateTime]::Parse() causes locale-dependent DD/MM vs MM/DD confusion.
+        # Dates are stored as ISO 8601 strings via ToString('o').
         $timestamp = if ($Data.lastChecked -is [DateTime]) {
             $Data.lastChecked.ToString('o')
         } else {
@@ -102,7 +106,9 @@ function Get-LastUpdateCheck {
     }
 
     try {
-        # Handle both DateTime objects (from ConvertFrom-Json) and ISO strings
+        # Handle both DateTime objects (from ConvertFrom-Json) and ISO strings.
+        # [DateTimeOffset]::Parse avoids the DD/MM vs MM/DD locale ambiguity
+        # that [DateTime]::Parse has with round-tripped date strings.
         $lastCheck = if ($cache.lastChecked -is [DateTime]) {
             $cache.lastChecked
         } else {
@@ -163,10 +169,14 @@ function Get-AvailableUpdateCount {
     }
 
     $cache = Get-UpdateCache
+    # -not @() evaluates to $true in PowerShell. A valid cache with zero updates
+    # was treated as missing. Use $null -eq to distinguish 'no cache' from 'empty'.
     if (-not $cache -or $null -eq $cache.updates) {
         return @{ Status = 'Unknown'; Count = 0; Message = 'Run /check-for-updates' }
     }
 
+    # Count only entries with a non-empty availableVersion. Pipx tools without
+    # confirmed updates were inflating the count shown on the home screen.
     $count = @($cache.updates | Where-Object {
         $_.availableVersion -and $_.availableVersion -ne ''
     }).Count

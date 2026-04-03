@@ -134,41 +134,41 @@ function Build-ProfileScreen {
 
     # --- Key handlers ---
     $healthList.add_KeyPress({
-        param($eventArgs)
-        $key = $eventArgs.KeyEvent.Key
+        param($e)
+        $key = $e.KeyEvent.Key
 
         # R -- Redeploy profile
         if ([int]$key -eq [int][char]'r' -or [int]$key -eq [int][char]'R') {
             Invoke-ProfileRedeployAction
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
         # D -- View drift
         if ([int]$key -eq [int][char]'d' -or [int]$key -eq [int][char]'D') {
             Show-DriftView
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
         # C -- Compare profiles in VS Code
         if ([int]$key -eq [int][char]'c' -or [int]$key -eq [int][char]'C') {
             Invoke-ProfileCompare
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
         # O -- Open in VS Code
         if ([int]$key -eq [int][char]'o' -or [int]$key -eq [int][char]'O') {
             Show-OpenFileDialog
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
         # F5 -- Refresh
         if ($key -eq [Terminal.Gui.Key]::F5) {
             Switch-Screen -ScreenName 'Profile'
-            $eventArgs.Handled = $true
+            $e.Handled = $true
             return
         }
 
@@ -177,7 +177,7 @@ function Build-ProfileScreen {
             $script:Layout.CommandInput.Text = "/"
             $script:Layout.CommandInput.SetFocus()
             $script:Layout.CommandInput.CursorPosition = 1
-            $eventArgs.Handled = $true
+            $e.Handled = $true
         }
     })
 
