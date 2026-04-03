@@ -88,7 +88,7 @@ function Build-HomeScreen {
     $menuList.X = 0
     $menuList.Y = 7
     $menuList.Width  = [Terminal.Gui.Dim]::Fill()
-    $menuList.Height = [Terminal.Gui.Dim]::Fill()
+    $menuList.Height = 5
     $menuList.AllowsMarking = $false
     if ($script:Colors.Menu) { $menuList.ColorScheme = $script:Colors.Menu }
 
@@ -115,6 +115,34 @@ function Build-HomeScreen {
     })
 
     $Container.Add($menuList)
+
+    # --- Quick start tips ---
+    $tipsY = 13
+    $tipsHeader = [Terminal.Gui.Label]::new("  QUICK START")
+    $tipsHeader.X = 0; $tipsHeader.Y = $tipsY
+    $tipsHeader.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.Header) { $tipsHeader.ColorScheme = $script:Colors.Header }
+    $Container.Add($tipsHeader)
+
+    $tips = @(
+        "  Use arrow keys to navigate the menu, Enter to select."
+        "  Type / to open the command bar. Try /update, /profile, or /help."
+        "  Press F1 at any time for a full list of keybindings and commands."
+    )
+    for ($i = 0; $i -lt $tips.Count; $i++) {
+        $tipLabel = [Terminal.Gui.Label]::new($tips[$i])
+        $tipLabel.X = 0; $tipLabel.Y = $tipsY + 1 + $i
+        $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
+        $Container.Add($tipLabel)
+    }
+
+    # --- Credit ---
+    $credit = [Terminal.Gui.Label]::new("  Created by Matt Lawrence")
+    $credit.X = 0
+    $credit.Y = [Terminal.Gui.Pos]::AnchorEnd(1)
+    $credit.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.Header) { $credit.ColorScheme = $script:Colors.Header }
+    $Container.Add($credit)
 
     # Store reference for focus management
     $script:Layout.MenuList = $menuList
