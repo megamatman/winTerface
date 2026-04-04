@@ -71,42 +71,49 @@ function New-InstallFunction {
 
     $safeName = $DisplayName -replace '[^a-zA-Z0-9]', ''
 
+    # Escape single quotes in all user-supplied values before embedding in
+    # generated code. Generated strings use single quotes so injected
+    # semicolons, backticks, and $() are treated as literal text.
+    $dn  = $DisplayName  -replace "'", "''"
+    $pid2 = $PackageId   -replace "'", "''"
+    $vc  = $VerifyCommand -replace "'", "''"
+
     $installCmd = switch ($PackageManager) {
-        'choco'  { "choco install $PackageId -y" }
-        'winget' { "winget install $PackageId --silent --accept-package-agreements --accept-source-agreements" }
-        'pipx'   { "pipx install $PackageId" }
+        'choco'  { "choco install '$pid2' -y" }
+        'winget' { "winget install '$pid2' --silent --accept-package-agreements --accept-source-agreements" }
+        'pipx'   { "pipx install '$pid2'" }
         'manual' { $null }
     }
 
     if ($PackageManager -eq 'manual') {
         return @"
 function Install-$safeName {
-    Write-Step "$DisplayName"
-    if (Get-Command $VerifyCommand -ErrorAction SilentlyContinue) {
-        Write-Verbose "Skipping $DisplayName -- already installed"
-        Write-Skip "$DisplayName is already installed" -Track "$DisplayName"
+    Write-Step '$dn'
+    if (Get-Command '$vc' -ErrorAction SilentlyContinue) {
+        Write-Verbose 'Skipping $dn -- already installed'
+        Write-Skip '$dn is already installed' -Track '$dn'
         return
     }
-    Write-Issue "$DisplayName must be installed manually" -Track "$DisplayName"
+    Write-Issue '$dn must be installed manually' -Track '$dn'
 }
 "@
     }
 
     return @"
 function Install-$safeName {
-    Write-Step "$DisplayName"
-    if (Get-Command $VerifyCommand -ErrorAction SilentlyContinue) {
-        Write-Verbose "Skipping $DisplayName -- already installed"
-        Write-Skip "$DisplayName is already installed" -Track "$DisplayName"
+    Write-Step '$dn'
+    if (Get-Command '$vc' -ErrorAction SilentlyContinue) {
+        Write-Verbose 'Skipping $dn -- already installed'
+        Write-Skip '$dn is already installed' -Track '$dn'
         return
     }
     try {
         $installCmd
-        if (`$LASTEXITCODE -ne 0) { Write-Issue "$DisplayName install failed (exit code: `$LASTEXITCODE)" -Track "$DisplayName"; return }
+        if (`$LASTEXITCODE -ne 0) { Write-Issue '$dn install failed (exit code: ' + `$LASTEXITCODE + ')' -Track '$dn'; return }
         Update-SessionPath
-        Write-Change "$DisplayName installed" -Track "$DisplayName"
+        Write-Change '$dn installed' -Track '$dn'
     } catch {
-        Write-Issue "$DisplayName install failed: `$(`$_.Exception.Message)" -Track "$DisplayName"
+        Write-Issue ('$dn install failed: ' + `$_.Exception.Message) -Track '$dn'
     }
 }
 "@
@@ -126,7 +133,10 @@ function New-RegistryEntry {
     )
 
     $key = $DisplayName.ToLower() -replace '[^a-z0-9\-]', ''
-    return "    `"$key`" = @{ Manager = `"$PackageManager`"; Id = `"$PackageId`" }"
+    # Escape quotes in user-supplied values before embedding in generated code
+    $mgr = $PackageManager -replace '"', '`"'
+    $id  = $PackageId      -replace '"', '`"'
+    return "    `"$key`" = @{ Manager = `"$mgr`"; Id = `"$id`" }"
 }
 
 function New-ProfileSection {

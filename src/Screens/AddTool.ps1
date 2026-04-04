@@ -22,13 +22,15 @@ $script:ChocoSearchResults  = @()
 $script:WingetSearchResults = @()
 
 # Guided step definitions
+# AllowedPattern: field-specific character allowlists to prevent code injection.
+# Values are validated before advancing the wizard step.
 $script:GuidedSteps = @(
-    @{ Title = 'Display name';               Desc = 'What should this tool be called? (e.g. ripgrep, lazygit)';                  Key = 'DisplayName';    Type = 'text';   Required = $true;  Next = 'GuidedManager' }
+    @{ Title = 'Display name';               Desc = 'What should this tool be called? (e.g. ripgrep, lazygit)';                  Key = 'DisplayName';    Type = 'text';   Required = $true;  Next = 'GuidedManager';   AllowedPattern = '^[a-zA-Z0-9\-\._\s]+$' }
     @{ Title = 'Package manager';            Desc = 'Which package manager installs this tool?';                                  Key = 'PackageManager'; Type = 'select'; Required = $true;  Next = 'GuidedPackageId'; Options = @('choco','winget','pipx','manual') }
-    @{ Title = 'Package ID';                 Desc = 'Package name or ID used to install (e.g. ripgrep, junegunn.fzf)';           Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify' }
-    @{ Title = 'Verify command';             Desc = 'Command that confirms installation (e.g. rg, fzf, delta)';                  Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias' }
-    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'GuidedUpdate' }
-    @{ Title = 'Update override (optional)'; Desc = 'Custom update command if not handled by standard update script';            Key = 'UpdateOverride'; Type = 'text';   Required = $false; Next = 'Confirmation' }
+    @{ Title = 'Package ID';                 Desc = 'Package name or ID used to install (e.g. ripgrep, junegunn.fzf)';           Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/]+$' }
+    @{ Title = 'Verify command';             Desc = 'Command that confirms installation (e.g. rg, fzf, delta)';                  Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\.\_]+$' }
+    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'GuidedUpdate';    AllowedPattern = '^[a-zA-Z0-9\-\_\s]+$' }
+    @{ Title = 'Update override (optional)'; Desc = 'Custom update command if not handled by standard update script';            Key = 'UpdateOverride'; Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/\s]+$' }
 )
 
 # ---------------------------------------------------------------------------
@@ -546,6 +548,14 @@ function Add-GuidedTextInput {
         if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
             $val = $script:_GuidedInput.Text.ToString().Trim()
             if ($script:_CurrentStep.Required -and [string]::IsNullOrWhiteSpace($val)) {
+                $e.Handled = $true
+                return
+            }
+            # Validate against field-specific allowlist to prevent code injection
+            if ($val -and $script:_CurrentStep.AllowedPattern -and
+                $val -notmatch $script:_CurrentStep.AllowedPattern) {
+                # Show inline error -- do not advance
+                $script:_GuidedInput.Text = ''
                 $e.Handled = $true
                 return
             }
