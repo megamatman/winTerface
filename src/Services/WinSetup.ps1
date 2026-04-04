@@ -659,6 +659,34 @@ function Get-ToolInventory {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+
+            # Some tools store their PATH in the profile rather than the
+            # registry. Add well-known locations as fallback.
+            $extraPaths = @(
+                "$env:USERPROFILE\.pyenv\pyenv-win\bin"
+                "$env:USERPROFILE\.pyenv\pyenv-win\shims"
+                "$env:APPDATA\Python\Python*\Scripts"     # pipx user install
+                "$env:LOCALAPPDATA\Programs\oh-my-posh\bin"
+            )
+            foreach ($p in $extraPaths) {
+                # Resolve wildcards (e.g. Python*)
+                $resolved = Resolve-Path $p -ErrorAction SilentlyContinue
+                if ($resolved) {
+                    foreach ($r in $resolved) {
+                        if ($env:PATH -notmatch [regex]::Escape($r.Path)) {
+                            $env:PATH = "$($r.Path);$env:PATH"
+                        }
+                    }
+                }
+            }
+
+            # Set pyenv env vars if pyenv-win is installed
+            $pyenvRoot = "$env:USERPROFILE\.pyenv\pyenv-win"
+            if (Test-Path $pyenvRoot) {
+                $env:PYENV      = $pyenvRoot
+                $env:PYENV_HOME = $pyenvRoot
+            }
+
             $results = @()
             foreach ($t in $toolList) {
                 $found   = $false
