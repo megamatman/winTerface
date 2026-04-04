@@ -87,11 +87,23 @@ function Build-HomeScreen {
         -Status $wsState -X 0 -Y 3
     $Container.Add($wsLabel)
 
-    # Profile health
-    $profStatus  = Get-ProfileHealthStatus
-    $profState   = switch ($profStatus.Status) { 'Ok' { 'Ok' } 'Error' { 'Error' } default { 'Warn' } }
-    $profLabel   = New-StatusLabel `
-        -Text "  $bullet Profile health          $($profStatus.Message)" `
+    # Profile health + drift. Health checks section presence; drift compares
+    # deployed $PROFILE against the source in winSetup. Both can be true
+    # simultaneously (all sections present but content differs).
+    $profStatus = Get-ProfileHealthStatus
+    $driftStatus = Get-ProfileDriftStatus
+    if ($profStatus.Status -eq 'Ok' -and $driftStatus.Status -eq 'Drifted') {
+        $profMessage = 'Drifted'
+        $profState = 'Warn'
+    } elseif ($profStatus.Status -eq 'Ok' -and $driftStatus.Status -eq 'InSync') {
+        $profMessage = 'Healthy'
+        $profState = 'Ok'
+    } else {
+        $profMessage = $profStatus.Message
+        $profState = switch ($profStatus.Status) { 'Ok' { 'Ok' } 'Error' { 'Error' } default { 'Warn' } }
+    }
+    $profLabel = New-StatusLabel `
+        -Text "  $bullet Profile health          $profMessage" `
         -Status $profState -X 0 -Y 4
     $Container.Add($profLabel)
 
