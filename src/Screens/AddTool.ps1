@@ -29,7 +29,7 @@ $script:GuidedSteps = @(
     @{ Title = 'Package manager';            Desc = 'Which package manager installs this tool?';                                  Key = 'PackageManager'; Type = 'select'; Required = $true;  Next = 'GuidedPackageId'; Options = @('choco','winget','pipx','manual') }
     @{ Title = 'Package ID';                 Desc = 'Package name or ID used to install (e.g. ripgrep, junegunn.fzf)';           Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/]+$' }
     @{ Title = 'Verify command';             Desc = 'Command that confirms installation (e.g. rg, fzf, delta)';                  Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\.\_]+$' }
-    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'GuidedUpdate';    AllowedPattern = '^[a-zA-Z0-9\-\_\s]+$' }
+    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'GuidedUpdate';    AllowedPattern = '^[a-zA-Z0-9\-\_]+$' }
     @{ Title = 'Update override (optional)'; Desc = 'Custom update command if not handled by standard update script';            Key = 'UpdateOverride'; Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/\s]+$' }
 )
 
