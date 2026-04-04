@@ -64,10 +64,16 @@ function Build-HomeScreen {
         $Container
     )
 
+    # --- Description ---
+    $descLabel = [Terminal.Gui.Label]::new("  Manage your winSetup dev environment. Install, update, and remove tools from the shell.")
+    $descLabel.X = 0; $descLabel.Y = 0
+    $descLabel.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($descLabel)
+
     # --- Status section header ---
     $statusHeader = [Terminal.Gui.Label]::new("  STATUS")
     $statusHeader.X = 0
-    $statusHeader.Y = 0
+    $statusHeader.Y = 2
     $statusHeader.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.Header) { $statusHeader.ColorScheme = $script:Colors.Header }
     $Container.Add($statusHeader)
@@ -78,7 +84,7 @@ function Build-HomeScreen {
     $bullet      = [char]0x25CF   # ●
     $wsLabel     = New-StatusLabel `
         -Text "  $bullet Environment health      $($wsStatus.Message)" `
-        -Status $wsState -X 0 -Y 1
+        -Status $wsState -X 0 -Y 3
     $Container.Add($wsLabel)
 
     # Profile health
@@ -86,7 +92,7 @@ function Build-HomeScreen {
     $profState   = switch ($profStatus.Status) { 'Ok' { 'Ok' } 'Error' { 'Error' } default { 'Warn' } }
     $profLabel   = New-StatusLabel `
         -Text "  $bullet Profile health          $($profStatus.Message)" `
-        -Status $profState -X 0 -Y 2
+        -Status $profState -X 0 -Y 4
     $Container.Add($profLabel)
 
     # Updates available
@@ -99,7 +105,7 @@ function Build-HomeScreen {
     }
     $updLabel    = New-StatusLabel `
         -Text "  $bullet Updates available       $($updateInfo.Message)" `
-        -Status $updState -X 0 -Y 3
+        -Status $updState -X 0 -Y 5
     $Container.Add($updLabel)
 
     # Last checked
@@ -107,13 +113,13 @@ function Build-HomeScreen {
     $lastCheckState = if ($lastCheck -eq 'Never') { 'Warn' } else { 'Ok' }
     $lastLabel      = New-StatusLabel `
         -Text "  $bullet Last checked            $lastCheck" `
-        -Status $lastCheckState -X 0 -Y 4
+        -Status $lastCheckState -X 0 -Y 6
     $Container.Add($lastLabel)
 
     # --- Main menu section header ---
     $menuHeader = [Terminal.Gui.Label]::new("  MAIN MENU")
     $menuHeader.X = 0
-    $menuHeader.Y = 6
+    $menuHeader.Y = 8
     $menuHeader.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.Header) { $menuHeader.ColorScheme = $script:Colors.Header }
     $Container.Add($menuHeader)
@@ -127,7 +133,7 @@ function Build-HomeScreen {
 
     $menuList = [Terminal.Gui.ListView]::new($menuStrings)
     $menuList.X = 0
-    $menuList.Y = 7
+    $menuList.Y = 9
     $menuList.Width  = [Terminal.Gui.Dim]::Fill()
     $menuList.Height = 5
     $menuList.AllowsMarking = $false
@@ -158,7 +164,7 @@ function Build-HomeScreen {
     $Container.Add($menuList)
 
     # --- Quick start tips ---
-    $tipsY = 13
+    $tipsY = 15
     $tipsHeader = [Terminal.Gui.Label]::new("  QUICK START")
     $tipsHeader.X = 0; $tipsHeader.Y = $tipsY
     $tipsHeader.Width = [Terminal.Gui.Dim]::Fill()

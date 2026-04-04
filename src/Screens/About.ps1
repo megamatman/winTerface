@@ -1,9 +1,9 @@
-# About.ps1 - Version and environment information screen
+# About.ps1 - Version, environment, and project information
 
 function Build-AboutScreen {
     <#
     .SYNOPSIS
-        Builds the about screen showing version and environment details.
+        Builds the about screen showing project info and environment details.
     .PARAMETER Container
         The parent view to add screen elements to.
     #>
@@ -18,7 +18,29 @@ function Build-AboutScreen {
     if ($script:Colors.Header) { $header.ColorScheme = $script:Colors.Header }
     $Container.Add($header)
 
-    # Gather environment data
+    # --- Project description ---
+    $desc = @(
+        "  winTerface is a terminal UI for managing a Windows development"
+        "  environment configured by winSetup. It provides keyboard-driven"
+        "  access to tool installation, updates, profile health, and config."
+    )
+    $y = 2
+    foreach ($line in $desc) {
+        $lbl = [Terminal.Gui.Label]::new($line)
+        $lbl.X = 0; $lbl.Y = $y; $lbl.Width = [Terminal.Gui.Dim]::Fill()
+        $Container.Add($lbl)
+        $y++
+    }
+
+    # --- Environment info ---
+    $y++
+    $envHeader = [Terminal.Gui.Label]::new("  ENVIRONMENT")
+    $envHeader.X = 0; $envHeader.Y = $y
+    $envHeader.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.Header) { $envHeader.ColorScheme = $script:Colors.Header }
+    $Container.Add($envHeader)
+    $y++
+
     $cgtVersion = 'Unknown'
     try {
         $mod = Get-Module Microsoft.PowerShell.ConsoleGuiTools -ListAvailable |
@@ -37,7 +59,6 @@ function Build-AboutScreen {
         @{ Label = 'Terminal';             Value = $(if ($env:WT_SESSION) { 'Windows Terminal' } else { 'Console' }) }
     )
 
-    $y = 2
     foreach ($item in $items) {
         $text = "  $($item.Label.PadRight(24)) $($item.Value)"
         $lbl = [Terminal.Gui.Label]::new($text)
@@ -47,14 +68,35 @@ function Build-AboutScreen {
         $y++
     }
 
+    # --- Links and credit ---
+    $y++
+    $linksHeader = [Terminal.Gui.Label]::new("  LINKS")
+    $linksHeader.X = 0; $linksHeader.Y = $y
+    $linksHeader.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.Header) { $linksHeader.ColorScheme = $script:Colors.Header }
+    $Container.Add($linksHeader)
+    $y++
+
+    $links = @(
+        "  winTerface             https://github.com/megamatman/winTerface"
+        "  winSetup               https://github.com/megamatman/winSetup"
+    )
+    foreach ($link in $links) {
+        $lbl = [Terminal.Gui.Label]::new($link)
+        $lbl.X = 0; $lbl.Y = $y; $lbl.Width = [Terminal.Gui.Dim]::Fill()
+        $Container.Add($lbl)
+        $y++
+    }
+
+    $y++
     $credit = [Terminal.Gui.Label]::new("  Created by Matt Lawrence")
-    $credit.X = 0; $credit.Y = ($y + 1)
+    $credit.X = 0; $credit.Y = $y
     $credit.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.Header) { $credit.ColorScheme = $script:Colors.Header }
     $Container.Add($credit)
 
     $hint = [Terminal.Gui.Label]::new("  Press Escape to return to the home screen.")
-    $hint.X = 0; $hint.Y = ($y + 3)
+    $hint.X = 0; $hint.Y = ($y + 2)
     $hint.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hint)
