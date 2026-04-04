@@ -168,8 +168,12 @@ function Build-UpdatesScreen {
         param($e)
         $key = $e.KeyEvent.Key
 
-        # 'a' / 'A' -- toggle all marks
-        if ([int]$key -eq [int][char]'a' -or [int]$key -eq [int][char]'A') {
+        # 'a' / 'A' -- toggle all marks. Check both lowercase and uppercase
+        # via KeyValue (not Key) to handle Shift state correctly. Terminal.Gui
+        # may add ShiftMask to Key for uppercase, making direct int comparison
+        # fail for 'A'. KeyValue strips modifier flags.
+        $keyVal = $e.KeyEvent.KeyValue
+        if ($keyVal -eq 97 -or $keyVal -eq 65) {   # 'a' or 'A'
             $lv = $script:Layout.MenuList
             if ($lv -and $lv.Source) {
                 for ($i = 0; $i -lt $script:_UpdateItems.Count; $i++) {
@@ -182,7 +186,7 @@ function Build-UpdatesScreen {
         }
 
         # 'u' / 'U' -- update selected tools individually
-        if ([int]$key -eq [int][char]'u' -or [int]$key -eq [int][char]'U') {
+        if ($keyVal -eq 117 -or $keyVal -eq 85) {
             try {
                 $script:UpdateFlowActive = $true
                 Invoke-SelectedUpdates
@@ -195,8 +199,9 @@ function Build-UpdatesScreen {
             return
         }
 
-        # Ctrl+A -- full update (Update-DevEnvironment.ps1 with no args)
-        if ([int]$key -eq 1) {   # ControlA = 1
+        # Ctrl+U -- full update (Update-DevEnvironment.ps1 with no args).
+        # Ctrl+A is unreliable -- Windows Terminal intercepts it as Select All.
+        if ([int]$key -eq 21) {   # ControlU = 21
             try {
                 $script:UpdateFlowActive = $true
                 Invoke-FullUpdate
@@ -234,7 +239,7 @@ function Build-UpdatesScreen {
     # --- Hint bar ---
     $hintY = 6 + $listHeight + 1
     $hints = [Terminal.Gui.Label]::new(
-        "  [Space] Toggle  [A] All  [U] Update  [Ctrl+A] Update all  [F5] Check  [Esc] Back")
+        "  [Space] Toggle  [A] All  [U] Update  [Ctrl+U] Update all  [F5] Check  [Esc] Back")
     $hints.X = 0; $hints.Y = $hintY
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
