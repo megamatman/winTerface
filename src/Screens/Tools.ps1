@@ -300,15 +300,19 @@ function Invoke-ToolInstallAction {
             }
 
             # Fallback: install directly via package manager
+            # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
             Write-Host "No Install-$toolName function found. Installing via $mgr directly."
             switch ($mgr) {
                 'choco'   { choco install $cmd -y 2>&1 }
                 'winget'  { winget install $cmd --silent --accept-package-agreements --accept-source-agreements 2>&1 }
                 'pipx'    { pipx install $cmd 2>&1 }
                 'pip'     { pip install --user $cmd 2>&1 }
+                # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
                 default   { Write-Host "No install handler for manager: $mgr" }
             }
+            # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
             if ($LASTEXITCODE -eq 0) { Write-Host "$toolName installed." }
+            # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
             else { Write-Host "$toolName install may have failed (exit code: $LASTEXITCODE)" }
         } catch {
             Write-Error "Job failed: $_"
