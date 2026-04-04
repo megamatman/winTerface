@@ -634,6 +634,12 @@ function Get-ToolInventory {
     $script:ToolInventoryJob = Start-Job -ScriptBlock {
         param($toolList)
         try {
+            # Refresh PATH from Machine + User env vars. Start-Job runs with
+            # -NoProfile so tools added via the profile (pyenv-win, pipx) are
+            # not on PATH by default.
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             $results = @()
             foreach ($t in $toolList) {
                 $found   = $false

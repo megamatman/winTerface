@@ -134,13 +134,13 @@ function Build-UpdatesScreen {
     }
     $script:_UpdateListStrings = $listStrings
 
-    $listHeight = [Math]::Min($allItems.Count, 8)
-
+    # Use Dim.Fill to allow scrolling when updates exceed visible area.
+    # Previously capped at 8 rows, clipping any additional updates.
     $updateList = [Terminal.Gui.ListView]::new($listStrings)
     $updateList.X       = 2
     $updateList.Y       = 6
     $updateList.Width    = [Terminal.Gui.Dim]::Fill(1)
-    $updateList.Height   = $listHeight
+    $updateList.Height  = [Terminal.Gui.Dim]::Fill(5)   # leave room for hints + output
     $updateList.AllowsMarking = $true
     if ($script:Colors.Menu) { $updateList.ColorScheme = $script:Colors.Menu }
 
@@ -223,15 +223,14 @@ function Build-UpdatesScreen {
     $script:Layout.MenuList = $updateList
 
     # --- Hint bar ---
-    $hintY = 6 + $listHeight + 1
     $hints = [Terminal.Gui.Label]::new(
-        "  [Space] Toggle  [A] All  [U] Update selected  [Ctrl+A] Update all  [F5] Check for updates  [Esc] Back")
-    $hints.X = 0; $hints.Y = $hintY
+        "  [Space] Toggle  [A] All  [U] Update  [Ctrl+A] Update all  [F5] Check  [Esc] Back")
+    $hints.X = 0; $hints.Y = [Terminal.Gui.Pos]::AnchorEnd(4)
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hints)
 
-    Add-OutputPane -Container $Container -Y ($hintY + 1)
+    Add-OutputPane -Container $Container -Y $([Terminal.Gui.Pos]::AnchorEnd(3))
     $updateList.SetFocus()
 }
 
@@ -273,11 +272,11 @@ function Add-OutputPane {
     .PARAMETER Y
         Y position for the pane.
     #>
-    param($Container, [int]$Y)
+    param($Container, $Y)
 
     $frame = [Terminal.Gui.FrameView]::new("Output")
     $frame.X      = 0
-    $frame.Y      = $Y
+    $frame.Y      = $Y   # accepts int or Terminal.Gui.Pos
     $frame.Width   = [Terminal.Gui.Dim]::Fill()
     $frame.Height  = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.Base) { $frame.ColorScheme = $script:Colors.Base }

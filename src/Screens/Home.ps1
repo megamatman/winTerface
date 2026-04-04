@@ -35,7 +35,8 @@ function Get-RandomQuote {
             # Strip control characters; allow printable ASCII plus common
             # Unicode punctuation (em dash, en dash, curly quotes).
             $quote = $quote -replace '[^\x20-\x7E\u00C0-\u00FF\u2013\u2014\u201C\u201D\u2018\u2019]', ''
-            if ($quote.Length -gt 200) { $quote = $quote.Substring(0, 197) + '...' }
+            # Truncate to fit narrow terminals -- Terminal.Gui Labels don't wrap
+            if ($quote.Length -gt 100) { $quote = $quote.Substring(0, 97) + '...' }
 
             return $quote
         }
