@@ -209,14 +209,6 @@ function Build-HomeScreen {
     if ($script:Colors.StatusWarn) { $quitHint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($quitHint)
 
-    # --- Credit ---
-    $credit = [Terminal.Gui.Label]::new("  Created by Matt Lawrence")
-    $credit.X = 0
-    $credit.Y = [Terminal.Gui.Pos]::AnchorEnd(1)
-    $credit.Width = [Terminal.Gui.Dim]::Fill()
-    if ($script:Colors.Header) { $credit.ColorScheme = $script:Colors.Header }
-    $Container.Add($credit)
-
     # Store reference for focus management
     $script:Layout.MenuList = $menuList
     $menuList.SetFocus()

@@ -47,8 +47,14 @@ function Build-AboutScreen {
         $y++
     }
 
+    $credit = [Terminal.Gui.Label]::new("  Created by Matt Lawrence")
+    $credit.X = 0; $credit.Y = ($y + 1)
+    $credit.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.Header) { $credit.ColorScheme = $script:Colors.Header }
+    $Container.Add($credit)
+
     $hint = [Terminal.Gui.Label]::new("  Press Escape to return to the home screen.")
-    $hint.X = 0; $hint.Y = ($y + 1)
+    $hint.X = 0; $hint.Y = ($y + 3)
     $hint.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hint)
