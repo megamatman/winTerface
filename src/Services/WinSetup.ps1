@@ -20,7 +20,7 @@ $script:ProfileRedeployOutput = ''
 # Expected profile sections -- mirrors Test-ProfileHealth in winSetup
 $script:ExpectedProfileSections = [ordered]@{
     'SSH Agent'           = 'ssh-agent'
-    'SSH window title'    = 'SSH_CLIENT.*WindowTitle'
+    'SSH window title'    = 'SSH:.*COMPUTERNAME'
     'Chocolatey'          = 'chocolateyProfile'
     'winSetup'            = 'WINSETUP'
     'Python Tools'        = 'Setup-PythonTools'
