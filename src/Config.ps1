@@ -20,6 +20,8 @@ function Get-WinTerfaceConfig {
     .OUTPUTS
         [hashtable] Configuration object.
     #>
+    [OutputType([hashtable])]
+    param()
     $defaults = @{
         winSetupPath             = if ($env:WINSETUP) { $env:WINSETUP } else { '' }
         lastUpdateCheck          = $null
@@ -83,6 +85,7 @@ function Save-WinTerfaceConfig {
     .OUTPUTS
         [hashtable] @{ Success = bool; Errors = string[] }
     #>
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)]
         [hashtable]$Config

@@ -83,121 +83,123 @@ function Invoke-GlobalKeyHandler {
     return $false
 }
 
+function Invoke-CommandBarTextChanged {
+    <#
+    .SYNOPSIS
+        Handles text changes in the command bar: updates autocomplete overlay
+        and resets the tab completion cycle.
+    #>
+    $text = $script:Layout.CommandInput.Text.ToString()
+
+    # Any text change resets the tab completion cycle so the next Tab
+    # starts a fresh match from the new input.
+    Reset-TabCompletion
+
+    if ($text.StartsWith('/') -and $text.Length -gt 1) {
+        $searchTerm = $text.Substring(1)
+        $suggestions = Get-CommandSuggestions -SearchTerm $searchTerm
+        $script:AutocompleteSuggestions = $suggestions
+        if ($suggestions.Count -gt 0) {
+            Show-AutocompleteOverlay -Suggestions $suggestions
+        } else {
+            Hide-AutocompleteOverlay
+        }
+    }
+    elseif ($text -eq '/') {
+        $suggestions = Get-CommandSuggestions -SearchTerm ''
+        $script:AutocompleteSuggestions = $suggestions
+        Show-AutocompleteOverlay -Suggestions $suggestions
+    }
+    else {
+        Hide-AutocompleteOverlay
+    }
+}
+
+function Invoke-CommandBarKeyPress {
+    <#
+    .SYNOPSIS
+        Handles key presses in the command bar: Enter, Tab, Escape, arrows.
+    .PARAMETER KeyEventArgs
+        The Terminal.Gui key event args from the KeyPress handler.
+    #>
+    param($KeyEventArgs)
+
+    $key = $KeyEventArgs.KeyEvent.Key
+
+    # Enter -- execute the command (or accept highlighted autocomplete)
+    if ($key -eq [Terminal.Gui.Key]::Enter) {
+        $text = $script:Layout.CommandInput.Text.ToString().Trim()
+
+        if ($script:Layout.AutocompleteList -and
+            $script:AutocompleteSuggestions.Count -gt 0) {
+            $idx = $script:Layout.AutocompleteList.SelectedItem
+            if ($idx -ge 0 -and $idx -lt $script:AutocompleteSuggestions.Count) {
+                $text = $script:AutocompleteSuggestions[$idx].Command
+            }
+        }
+
+        if ($text.StartsWith('/')) {
+            Invoke-SlashCommand -CommandText $text
+        }
+
+        $script:Layout.CommandInput.Text = ""
+        Hide-AutocompleteOverlay
+        if ($script:Layout.MenuList) { $script:Layout.MenuList.SetFocus() }
+        $KeyEventArgs.Handled = $true
+        return
+    }
+
+    # Tab -- cycle through prefix-matched completions
+    if ($key -eq [Terminal.Gui.Key]::Tab) {
+        $completed = Get-TabCompletion -Text $script:Layout.CommandInput.Text.ToString()
+        if ($completed) {
+            $script:Layout.CommandInput.Text = $completed
+            $script:Layout.CommandInput.CursorPosition = $completed.Length
+        }
+        $KeyEventArgs.Handled = $true
+        return
+    }
+
+    # Escape -- clear and return focus to menu
+    if ($key -eq [Terminal.Gui.Key]::Esc) {
+        $script:Layout.CommandInput.Text = ""
+        Hide-AutocompleteOverlay
+        if ($script:Layout.MenuList) { $script:Layout.MenuList.SetFocus() }
+        $KeyEventArgs.Handled = $true
+        return
+    }
+
+    # Arrow up/down -- navigate autocomplete list
+    if ($key -eq [Terminal.Gui.Key]::CursorUp -and $script:Layout.AutocompleteList) {
+        $list = $script:Layout.AutocompleteList
+        if ($list.SelectedItem -gt 0) {
+            $list.SelectedItem = $list.SelectedItem - 1
+            $list.SetNeedsDisplay()
+        }
+        $KeyEventArgs.Handled = $true
+        return
+    }
+
+    if ($key -eq [Terminal.Gui.Key]::CursorDown -and $script:Layout.AutocompleteList) {
+        $list = $script:Layout.AutocompleteList
+        $maxIdx = $script:AutocompleteSuggestions.Count - 1
+        if ($list.SelectedItem -lt $maxIdx) {
+            $list.SelectedItem = $list.SelectedItem + 1
+            $list.SetNeedsDisplay()
+        }
+        $KeyEventArgs.Handled = $true
+        return
+    }
+}
+
 function Register-CommandBarHandlers {
     <#
     .SYNOPSIS
         Wires up keyboard and text-change events on the command bar TextField.
-    .DESCRIPTION
-        Handles Enter (execute), Tab (accept suggestion), Escape (dismiss),
-        and arrow keys (navigate autocomplete). TextChanged triggers fuzzy
-        filtering of the slash command list.
     #>
     $cmdInput = $script:Layout.CommandInput
-
-    # --- Text changed: update autocomplete overlay and reset tab cycle ---
-    $cmdInput.add_TextChanged({
-        param($oldText)
-        $text = $script:Layout.CommandInput.Text.ToString()
-
-        # Any text change resets the tab completion cycle so the next Tab
-        # starts a fresh match from the new input.
-        Reset-TabCompletion
-
-        if ($text.StartsWith('/') -and $text.Length -gt 1) {
-            $searchTerm = $text.Substring(1)
-            $suggestions = Get-CommandSuggestions -SearchTerm $searchTerm
-            $script:AutocompleteSuggestions = $suggestions
-            if ($suggestions.Count -gt 0) {
-                Show-AutocompleteOverlay -Suggestions $suggestions
-            } else {
-                Hide-AutocompleteOverlay
-            }
-        }
-        elseif ($text -eq '/') {
-            $suggestions = Get-CommandSuggestions -SearchTerm ''
-            $script:AutocompleteSuggestions = $suggestions
-            Show-AutocompleteOverlay -Suggestions $suggestions
-        }
-        else {
-            Hide-AutocompleteOverlay
-        }
-    })
-
-    # --- Key press on the command input ---
-    $cmdInput.add_KeyPress({
-        param($e)
-        $key = $e.KeyEvent.Key
-
-        # Enter -- execute the command (or accept highlighted autocomplete)
-        if ($key -eq [Terminal.Gui.Key]::Enter) {
-            $text = $script:Layout.CommandInput.Text.ToString().Trim()
-
-            # If the autocomplete list is open, prefer the highlighted entry
-            if ($script:Layout.AutocompleteList -and
-                $script:AutocompleteSuggestions.Count -gt 0) {
-                $idx = $script:Layout.AutocompleteList.SelectedItem
-                if ($idx -ge 0 -and $idx -lt $script:AutocompleteSuggestions.Count) {
-                    $text = $script:AutocompleteSuggestions[$idx].Command
-                }
-            }
-
-            if ($text.StartsWith('/')) {
-                Invoke-SlashCommand -CommandText $text
-            }
-
-            $script:Layout.CommandInput.Text = ""
-            Hide-AutocompleteOverlay
-            if ($script:Layout.MenuList) { $script:Layout.MenuList.SetFocus() }
-            $e.Handled = $true
-            return
-        }
-
-        # Tab -- cycle through prefix-matched completions.
-        # The overlay is visual feedback; Enter accepts the overlay selection.
-        # Tab always uses the cycling logic for predictable behaviour.
-        # Always suppress default Tab behaviour (focus change).
-        if ($key -eq [Terminal.Gui.Key]::Tab) {
-            $completed = Get-TabCompletion -Text $script:Layout.CommandInput.Text.ToString()
-            if ($completed) {
-                $script:Layout.CommandInput.Text = $completed
-                $script:Layout.CommandInput.CursorPosition = $completed.Length
-            }
-            $e.Handled = $true
-            return
-        }
-
-        # Escape -- clear and return focus to menu
-        if ($key -eq [Terminal.Gui.Key]::Esc) {
-            $script:Layout.CommandInput.Text = ""
-            Hide-AutocompleteOverlay
-            if ($script:Layout.MenuList) { $script:Layout.MenuList.SetFocus() }
-            $e.Handled = $true
-            return
-        }
-
-        # Arrow up -- navigate autocomplete list up
-        if ($key -eq [Terminal.Gui.Key]::CursorUp -and $script:Layout.AutocompleteList) {
-            $list = $script:Layout.AutocompleteList
-            if ($list.SelectedItem -gt 0) {
-                $list.SelectedItem = $list.SelectedItem - 1
-                $list.SetNeedsDisplay()
-            }
-            $e.Handled = $true
-            return
-        }
-
-        # Arrow down -- navigate autocomplete list down
-        if ($key -eq [Terminal.Gui.Key]::CursorDown -and $script:Layout.AutocompleteList) {
-            $list = $script:Layout.AutocompleteList
-            $maxIdx = $script:AutocompleteSuggestions.Count - 1
-            if ($list.SelectedItem -lt $maxIdx) {
-                $list.SelectedItem = $list.SelectedItem + 1
-                $list.SetNeedsDisplay()
-            }
-            $e.Handled = $true
-            return
-        }
-    })
+    $cmdInput.add_TextChanged({ param($oldText); Invoke-CommandBarTextChanged })
+    $cmdInput.add_KeyPress({ param($e); Invoke-CommandBarKeyPress -KeyEventArgs $e })
 }
 
 # ---------------------------------------------------------------------------
@@ -257,6 +259,8 @@ function Hide-AutocompleteOverlay {
         Removes the autocomplete overlay from the window.
     #>
     if ($script:Layout -and $script:Layout.AutocompleteOverlay) {
+        # Intentional silent catch: the overlay view may already be removed
+        # (e.g. during a screen transition). Safe to ignore.
         try {
             $script:Layout.Window.Remove($script:Layout.AutocompleteOverlay)
         } catch {}

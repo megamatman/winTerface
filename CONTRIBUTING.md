@@ -38,9 +38,20 @@ must be followed to avoid crashes:
   |---|---|---|
   | `$script:Layout.MenuList` | Multiple | Main navigation list |
   | `$script:_EditInput` | Config | TextField in config edit dialogs |
+  | `$script:_EditResult` | Config | Return value from edit dialog |
+  | `$script:_PathConfirmed` | Config | Confirmation flag for path change dialog |
+  | `$script:_ClearConfirmed` | Config | Confirmation flag for cache clear dialog |
   | `$script:_SearchInput` | AddTool | TextField in package search step |
   | `$script:_CurrentStep` | AddTool | Step definition hashtable in guided wizard |
   | `$script:_GuidedInput` | AddTool | TextField in guided text input steps |
+  | `$script:_InstallNow` | AddTool | Flag from install-now dialog |
+  | `$script:_RedeployConfirmed` | Profile | Confirmation flag for redeploy dialog |
+  | `$script:_OpenChoice` | Profile | Selection index from open-file dialog |
+  | `$script:_UpdateItems` | Updates | Cached update list for mark checking |
+  | `$script:_UpdateListStrings` | Updates | Mutable List backing the ListView |
+  | `$script:_ToolDetailView` | Tools | Detail panel TextView reference |
+  | `$script:_RemoveChoice` | Tools | Selection from remove confirmation dialog |
+  | `$script:_RemovingToolName` | Tools | Tool name being uninstalled (for cleanup) |
 
   When adding new dialogs or handlers, follow this pattern and add new
   variables to this table.

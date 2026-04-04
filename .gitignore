@@ -5,6 +5,9 @@
 *.psm1.bak
 *.ps1.bak
 
+# Backup files created by Uninstall-Tool.ps1 and the Add Tool wizard
+*.bak-*
+
 # Windows
 Thumbs.db
 ehthumbs.db

@@ -164,6 +164,8 @@ function Get-AvailableUpdateCount {
     .OUTPUTS
         [hashtable] @{ Status = string; Count = int; Message = string }
     #>
+    [OutputType([hashtable])]
+    param()
     if ($script:UpdateCheckState -eq 'Checking') {
         return @{ Status = 'Checking'; Count = 0; Message = 'Checking...' }
     }

@@ -210,6 +210,8 @@ function Invoke-SlashCommand {
         The full command text including leading / (e.g. "/quit").
     #>
     param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string]$CommandText
     )
 

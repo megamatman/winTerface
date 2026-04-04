@@ -124,6 +124,8 @@ function Get-WinSetupStatus {
     .OUTPUTS
         [hashtable] @{ Status = 'Ok'|'Error'; Message = string }
     #>
+    [OutputType([hashtable])]
+    param()
     if (Test-WinSetupPath) {
         return @{ Status = 'Ok'; Message = 'OK' }
     }
@@ -176,6 +178,8 @@ function Get-ProfileHealthStatus {
     .OUTPUTS
         [hashtable] @{ Status = 'Ok'|'Warn'|'Error'; Message = string }
     #>
+    [OutputType([hashtable])]
+    param()
     if (-not (Test-WinSetupPath)) {
         return @{ Status = 'Warn'; Message = 'winSetup not configured' }
     }
@@ -410,6 +414,8 @@ function Get-ProfileHealthResults {
     .OUTPUTS
         [hashtable] @{ Sections = array of @{ Section, Status, Pattern, Suggestion }; Error = string|$null }
     #>
+    [OutputType([hashtable])]
+    param()
     $profilePath = $PROFILE
     if (-not (Test-Path $profilePath)) {
         return @{ Sections = @(); Error = "No profile found at $profilePath" }
@@ -447,6 +453,8 @@ function Get-ProfileDriftStatus {
     .OUTPUTS
         [hashtable] @{ Status = 'InSync'|'Drifted'|'SourceNotFound'; DiffText = string }
     #>
+    [OutputType([hashtable])]
+    param()
     $deployed = $PROFILE
     $source   = Join-Path $env:WINSETUP 'profile.ps1'
 
@@ -675,7 +683,12 @@ function Update-WinSetupPath {
     .OUTPUTS
         [hashtable] @{ Success = bool; Error = string }
     #>
-    param([string]$NewPath)
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$NewPath
+    )
 
     if (-not (Test-Path $NewPath)) {
         return @{ Success = $false; Error = "Path does not exist: $NewPath" }
@@ -729,6 +742,8 @@ function Read-UpdateCacheRaw {
     .OUTPUTS
         [hashtable] Cache object. Returns empty structure if file does not exist.
     #>
+    [OutputType([hashtable])]
+    param()
     $cachePath = Join-Path $env:USERPROFILE '.winTerface' 'update-cache.json'
     if (-not (Test-Path $cachePath)) {
         return @{ lastChecked = $null; updates = @() }

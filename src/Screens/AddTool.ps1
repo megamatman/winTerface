@@ -473,85 +473,100 @@ function Build-WizardGuidedStep {
 
     # $step is function-local and resolves to $null in .NET event handlers.
     # Stored as $script:_CurrentStep before registering OpenSelectedItem.
-    # Also used by the guided text handler (Bug 3) for the same reason.
+    # Also used by the guided text KeyPress handler for the same reason.
     $script:_CurrentStep = $step
 
     if ($step.Type -eq 'select') {
-        # Selection list
-        $optStrings = [System.Collections.Generic.List[string]]::new()
-        foreach ($o in $step.Options) { $optStrings.Add("  $o") }
+        Add-GuidedSelectInput -Container $Container -Step $step
+    } else {
+        Add-GuidedTextInput -Container $Container -Step $step
+    }
+}
 
-        $selList = [Terminal.Gui.ListView]::new($optStrings)
-        $selList.X = 4; $selList.Y = 5
-        $selList.Width = [Terminal.Gui.Dim]::Fill(4)
-        $selList.Height = $step.Options.Count
-        $selList.AllowsMarking = $false
-        if ($script:Colors.Menu) { $selList.ColorScheme = $script:Colors.Menu }
+function Add-GuidedSelectInput {
+    <#
+    .SYNOPSIS
+        Builds the selection list branch of a guided wizard step.
+    #>
+    param($Container, $Step)
 
-        # Pre-select current value
-        $currentVal = $script:WizardData[$step.Key]
-        if ($currentVal) {
-            $idx = $step.Options.IndexOf($currentVal)
-            if ($idx -ge 0) { $selList.SelectedItem = $idx }
+    $optStrings = [System.Collections.Generic.List[string]]::new()
+    foreach ($o in $Step.Options) { $optStrings.Add("  $o") }
+
+    $selList = [Terminal.Gui.ListView]::new($optStrings)
+    $selList.X = 4; $selList.Y = 5
+    $selList.Width = [Terminal.Gui.Dim]::Fill(4)
+    $selList.Height = $Step.Options.Count
+    $selList.AllowsMarking = $false
+    if ($script:Colors.Menu) { $selList.ColorScheme = $script:Colors.Menu }
+
+    $currentVal = $script:WizardData[$Step.Key]
+    if ($currentVal) {
+        $idx = $Step.Options.IndexOf($currentVal)
+        if ($idx -ge 0) { $selList.SelectedItem = $idx }
+    }
+
+    $selList.add_OpenSelectedItem({
+        param($e)
+        $script:WizardData[$script:_CurrentStep.Key] = $script:_CurrentStep.Options[$e.Item]
+        $script:WizardStep = $script:_CurrentStep.Next
+        Switch-Screen -ScreenName 'AddTool'
+    })
+
+    $selList.add_KeyPress({
+        param($e)
+        if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
+            Step-WizardBack
+            $e.Handled = $true
         }
+    })
 
-        $selList.add_OpenSelectedItem({
-            param($e)
-            $script:WizardData[$script:_CurrentStep.Key] = $script:_CurrentStep.Options[$e.Item]
+    $Container.Add($selList)
+    $script:Layout.MenuList = $selList
+    $selList.SetFocus()
+}
+
+function Add-GuidedTextInput {
+    <#
+    .SYNOPSIS
+        Builds the text input branch of a guided wizard step.
+    #>
+    param($Container, $Step)
+
+    # $tf and $step are function-local and resolve to $null in .NET event
+    # handlers. Stored as $script:_GuidedInput and $script:_CurrentStep.
+    $currentVal = $script:WizardData[$Step.Key]
+    $script:_GuidedInput = [Terminal.Gui.TextField]::new($(if ($currentVal) { $currentVal } else { '' }))
+    $script:_GuidedInput.X = 4; $script:_GuidedInput.Y = 5
+    $script:_GuidedInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_GuidedInput.Height = 1
+    if ($script:Colors.CommandBar) { $script:_GuidedInput.ColorScheme = $script:Colors.CommandBar }
+
+    $script:_GuidedInput.add_KeyPress({
+        param($e)
+        if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
+            $val = $script:_GuidedInput.Text.ToString().Trim()
+            if ($script:_CurrentStep.Required -and [string]::IsNullOrWhiteSpace($val)) {
+                $e.Handled = $true
+                return
+            }
+            $script:WizardData[$script:_CurrentStep.Key] = $val
             $script:WizardStep = $script:_CurrentStep.Next
             Switch-Screen -ScreenName 'AddTool'
-        })
+            $e.Handled = $true
+        }
+        if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
+            Step-WizardBack
+            $e.Handled = $true
+        }
+    })
 
-        $selList.add_KeyPress({
-            param($e)
-            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
-                Step-WizardBack
-                $e.Handled = $true
-            }
-        })
+    $optionalHint = if (-not $Step.Required) { ' (press Enter to skip)' } else { '' }
+    Add-WizardHint -Container $Container -Y 7 `
+        -Text "Enter to continue${optionalHint}, Escape to go back"
 
-        $Container.Add($selList)
-        $script:Layout.MenuList = $selList
-        $selList.SetFocus()
-
-    } else {
-        # $tf is function-local and resolves to $null in .NET event handlers.
-        # Stored as $script:_GuidedInput before registering the KeyPress handler.
-        # $step is read via $script:_CurrentStep (same fix applied in Bug 2).
-        $currentVal = $script:WizardData[$step.Key]
-        $script:_GuidedInput = [Terminal.Gui.TextField]::new($(if ($currentVal) { $currentVal } else { '' }))
-        $script:_GuidedInput.X = 4; $script:_GuidedInput.Y = 5
-        $script:_GuidedInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_GuidedInput.Height = 1
-        if ($script:Colors.CommandBar) { $script:_GuidedInput.ColorScheme = $script:Colors.CommandBar }
-
-        $script:_GuidedInput.add_KeyPress({
-            param($e)
-            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
-                $val = $script:_GuidedInput.Text.ToString().Trim()
-                if ($script:_CurrentStep.Required -and [string]::IsNullOrWhiteSpace($val)) {
-                    # Don't advance if required and empty
-                    $e.Handled = $true
-                    return
-                }
-                $script:WizardData[$script:_CurrentStep.Key] = $val
-                $script:WizardStep = $script:_CurrentStep.Next
-                Switch-Screen -ScreenName 'AddTool'
-                $e.Handled = $true
-            }
-            if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Esc) {
-                Step-WizardBack
-                $e.Handled = $true
-            }
-        })
-
-        $optionalHint = if (-not $step.Required) { ' (press Enter to skip)' } else { '' }
-        Add-WizardHint -Container $Container -Y 7 `
-            -Text "Enter to continue${optionalHint}, Escape to go back"
-
-        $Container.Add($script:_GuidedInput)
-        $script:Layout.MenuList = $null
-        $script:_GuidedInput.SetFocus()
-    }
+    $Container.Add($script:_GuidedInput)
+    $script:Layout.MenuList = $null
+    $script:_GuidedInput.SetFocus()
 }
 
 # ---------------------------------------------------------------------------
@@ -601,51 +616,58 @@ function Build-WizardConfirmation {
     $tv.SetFocus()
 }
 
+function Save-NewToolRegistration {
+    <#
+    .SYNOPSIS
+        Appends the new tool to $script:KnownTools on disk and in memory.
+    .DESCRIPTION
+        Mirrors Uninstall-Tool.ps1 Step 5 in reverse. Backs up WinSetup.ps1
+        before editing. Updates the in-memory array and invalidates cached
+        inventory so the next Get-ToolInventory picks up the new tool.
+    #>
+    try {
+        $wtWinSetup = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'WinSetup.ps1'
+        if (-not (Test-Path $wtWinSetup)) { return }
+
+        $backup = "$wtWinSetup.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        Copy-Item $wtWinSetup $backup -ErrorAction SilentlyContinue
+
+        $wsContent = Get-Content $wtWinSetup
+        $newEntry = "    @{ Name = '$($script:WizardData.DisplayName)'; Command = '$($script:WizardData.VerifyCommand)'; Manager = '$($script:WizardData.PackageManager)'; Desc = '$($script:WizardData.DisplayName) tool.' }"
+        $inserted = $false
+        $newLines = [System.Collections.Generic.List[string]]::new()
+        foreach ($l in $wsContent) {
+            $newLines.Add($l)
+            if (-not $inserted -and $l -match '^\)' -and $newLines.Count -gt 5) {
+                $prev = $newLines[$newLines.Count - 2]
+                if ($prev -match "Name\s*=") {
+                    $newLines.Insert($newLines.Count - 1, $newEntry)
+                    $inserted = $true
+                }
+            }
+        }
+        if ($inserted) { $newLines | Set-Content $wtWinSetup -Encoding UTF8 }
+
+        # Update in-memory array and invalidate cached inventory
+        $script:KnownTools += @{
+            Name    = $script:WizardData.DisplayName
+            Command = $script:WizardData.VerifyCommand
+            Manager = $script:WizardData.PackageManager
+            Desc    = "$($script:WizardData.DisplayName) tool."
+        }
+        $script:ToolInventoryData = $null
+    } catch {}
+}
+
 function Invoke-WizardConfirm {
     <#
     .SYNOPSIS
-        Executes the atomic write and shows the result.
+        Executes the atomic write, registers the tool, and offers to install.
     #>
     $result = Write-ToolChanges -ToolData $script:WizardData
 
     if ($result.Success) {
-        # Append to $script:KnownTools in WinSetup.ps1 so the new tool
-        # appears on the Tools screen. Mirrors Uninstall-Tool.ps1 Step 5.
-        try {
-            $wtWinSetup = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'WinSetup.ps1'
-            if (Test-Path $wtWinSetup) {
-                $backup = "$wtWinSetup.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-                Copy-Item $wtWinSetup $backup -ErrorAction SilentlyContinue
-                $wsContent = Get-Content $wtWinSetup
-                $newEntry = "    @{ Name = '$($script:WizardData.DisplayName)'; Command = '$($script:WizardData.VerifyCommand)'; Manager = '$($script:WizardData.PackageManager)'; Desc = '$($script:WizardData.DisplayName) tool.' }"
-                $inserted = $false
-                $newLines = [System.Collections.Generic.List[string]]::new()
-                foreach ($l in $wsContent) {
-                    $newLines.Add($l)
-                    # Insert before the closing paren of $script:KnownTools
-                    if (-not $inserted -and $l -match '^\)' -and $newLines.Count -gt 5) {
-                        # Check that the previous lines look like KnownTools entries
-                        $prev = $newLines[$newLines.Count - 2]
-                        if ($prev -match "Name\s*=") {
-                            $newLines.Insert($newLines.Count - 1, $newEntry)
-                            $inserted = $true
-                        }
-                    }
-                }
-                if ($inserted) {
-                    $newLines | Set-Content $wtWinSetup -Encoding UTF8
-                }
-                # Also add to the in-memory array and invalidate cached inventory
-                $script:KnownTools += @{
-                    Name = $script:WizardData.DisplayName
-                    Command = $script:WizardData.VerifyCommand
-                    Manager = $script:WizardData.PackageManager
-                    Desc = "$($script:WizardData.DisplayName) tool."
-                }
-                $script:ToolInventoryData = $null
-            }
-        } catch {}
-
+        Save-NewToolRegistration
         $fileCount = $result.FilesWritten.Count
         $toolName  = $script:WizardData.DisplayName
 

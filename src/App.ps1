@@ -408,7 +408,10 @@ function Invoke-BackgroundPoll {
     }
 
     } catch {
-        # Swallow -- the timer callback must never crash Terminal.Gui
+        # Intentional: unhandled exceptions inside a .NET timer delegate propagate
+        # through Application.Run() and crash the process. Swallow but record for
+        # diagnosability. Check $script:LastPollError from the About screen or debug.
+        $script:LastPollError = "$(Get-Date -Format 'HH:mm:ss') Poll error: $_"
     }
 }
 
