@@ -142,13 +142,14 @@ function Build-UpdatesScreen {
     }
     $script:_UpdateListStrings = $listStrings
 
-    # Use Dim.Fill to allow scrolling when updates exceed visible area.
-    # Previously capped at 8 rows, clipping any additional updates.
+    # Cap the ListView height to the row count so it doesn't consume space
+    # the output pane needs. Scrollable if rows exceed terminal height.
+    $listHeight = [Math]::Min($allItems.Count, 15)
     $updateList = [Terminal.Gui.ListView]::new($listStrings)
     $updateList.X       = 2
     $updateList.Y       = 6
     $updateList.Width    = [Terminal.Gui.Dim]::Fill(1)
-    $updateList.Height  = [Terminal.Gui.Dim]::Fill(5)   # leave room for hints + output
+    $updateList.Height   = $listHeight
     $updateList.AllowsMarking = $true
     if ($script:Colors.Menu) { $updateList.ColorScheme = $script:Colors.Menu }
 
@@ -231,14 +232,16 @@ function Build-UpdatesScreen {
     $script:Layout.MenuList = $updateList
 
     # --- Hint bar ---
+    $hintY = 6 + $listHeight + 1
     $hints = [Terminal.Gui.Label]::new(
         "  [Space] Toggle  [A] All  [U] Update  [Ctrl+A] Update all  [F5] Check  [Esc] Back")
-    $hints.X = 0; $hints.Y = [Terminal.Gui.Pos]::AnchorEnd(4)
+    $hints.X = 0; $hints.Y = $hintY
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hints)
 
-    Add-OutputPane -Container $Container -Y $([Terminal.Gui.Pos]::AnchorEnd(3))
+    # Output pane takes all remaining space below the hint bar
+    Add-OutputPane -Container $Container -Y ($hintY + 1)
     $updateList.SetFocus()
 }
 
