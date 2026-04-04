@@ -100,10 +100,9 @@ winTerface/
 
 ## Known limitations
 
-- **Chrome Remote Desktop** intercepts `Ctrl+` key combinations at the browser
-  level. Bindings like `Ctrl+U` (update all) and `Ctrl+Q` (quit) will not work
-  over CRD. Use the slash command equivalents (`/quit`, `/update`) instead, or
-  connect via RDP.
+- **Remote desktop and SSH** may intercept `Ctrl+` key combinations before they
+  reach Terminal.Gui. `Ctrl+Q` (quit) may not work over Chrome Remote Desktop
+  or some SSH clients. Use `/quit` from the command bar instead.
 
 ## Created by
 

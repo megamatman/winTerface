@@ -199,9 +199,10 @@ function Build-UpdatesScreen {
             return
         }
 
-        # Ctrl+U -- full update (Update-DevEnvironment.ps1 with no args).
-        # Ctrl+A is unreliable -- Windows Terminal intercepts it as Select All.
-        if ([int]$key -eq 21) {   # ControlU = 21
+        # F2 -- full update (Update-DevEnvironment.ps1 with no args).
+        # Ctrl+A intercepted by Windows Terminal. Ctrl+U intercepted by
+        # terminal driver (stty kill). F2 is not intercepted by anything.
+        if ($key -eq [Terminal.Gui.Key]::F2) {
             try {
                 $script:UpdateFlowActive = $true
                 Invoke-FullUpdate
@@ -239,7 +240,7 @@ function Build-UpdatesScreen {
     # --- Hint bar ---
     $hintY = 6 + $listHeight + 1
     $hints = [Terminal.Gui.Label]::new(
-        "  [Space] Toggle  [A] All  [U] Update  [Ctrl+U] Update all  [F5] Check  [Esc] Back")
+        "  [Space] Toggle  [A] All  [U] Update  [F2] Update all  [F5] Check  [Esc] Back")
     $hints.X = 0; $hints.Y = $hintY
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
