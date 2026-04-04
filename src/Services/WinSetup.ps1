@@ -20,6 +20,7 @@ $script:ProfileRedeployOutput = ''
 # Expected profile sections -- mirrors Test-ProfileHealth in winSetup
 $script:ExpectedProfileSections = [ordered]@{
     'SSH Agent'           = 'ssh-agent'
+    'SSH window title'    = 'SSH_CLIENT.*WindowTitle'
     'Chocolatey'          = 'chocolateyProfile'
     'winSetup'            = 'WINSETUP'
     'Python Tools'        = 'Setup-PythonTools'
@@ -48,6 +49,7 @@ $script:ExpectedProfileSections = [ordered]@{
 # exposing regex patterns to the user.
 $script:ProfileDescriptions = @{
     'SSH Agent'           = 'Starts the SSH agent and loads your key automatically when a terminal opens.'
+    'SSH window title'    = 'Sets the terminal window title to the machine name during SSH sessions.'
     'Chocolatey'          = 'Imports the Chocolatey profile so tab completion works for choco commands.'
     'winSetup'            = 'Sets the $env:WINSETUP variable so other profile sections can find winSetup.'
     'Python Tools'        = 'Auto-checks and installs Python dev tools (pylint, ruff, mypy, etc.) periodically.'
@@ -74,6 +76,7 @@ $script:ProfileDescriptions = @{
 # Human-readable suggestion for each missing section
 $script:ProfileSuggestions = @{
     'SSH Agent'           = 'SSH agent auto-start block is missing. It loads your key on terminal open.'
+    'SSH window title'    = 'SSH window title block is missing. Remote sessions will not show the machine name in the title bar.'
     'Chocolatey'          = 'Chocolatey profile import is missing. Tab completion for choco will not work.'
     'winSetup'            = 'winSetup environment variable block is missing. Other profile sections depend on it.'
     'Python Tools'        = 'Python tools auto-setup function is missing. Periodic tool checks will not run.'
