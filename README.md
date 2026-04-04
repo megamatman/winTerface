@@ -98,12 +98,6 @@ winTerface/
     Screens/                  Home, Updates, Tools, AddTool, Profile, Config, About
 ```
 
-## Known limitations
-
-- **Remote desktop and SSH** may intercept `Ctrl+` key combinations before they
-  reach Terminal.Gui. `Ctrl+Q` (quit) may not work over Chrome Remote Desktop
-  or some SSH clients. Use `/quit` from the command bar instead.
-
 ## Created by
 
 Matt Lawrence
