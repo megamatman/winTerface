@@ -315,7 +315,7 @@ function Invoke-ToolInstallAction {
             Write-Host "[job] No Install-$toolName function. Installing via $mgr directly."
             switch ($mgr) {
                 'choco'  { Write-Host "[job] Running: choco install $cmd -y"; choco install $cmd -y 2>&1 }
-                'winget' { Write-Host "[job] Running: winget install $cmd"; winget install $cmd --silent --accept-package-agreements --accept-source-agreements 2>&1 }
+                'winget' { Write-Host "[job] Running: winget install $cmd"; winget install $cmd --silent --disable-interactivity --accept-package-agreements --accept-source-agreements 2>&1 }
                 'pipx'   { Write-Host "[job] Running: pipx install $cmd"; pipx install $cmd 2>&1 }
                 'pip'    { Write-Host "[job] Running: pip install --user $cmd"; pip install --user $cmd 2>&1 }
                 default  { Write-Host "[job] No install handler for manager: $mgr"; return }
