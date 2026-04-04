@@ -662,14 +662,36 @@ function Get-ToolInventory {
 
             # Some tools store their PATH in the profile rather than the
             # registry. Add well-known locations as fallback.
-            $extraPaths = @(
+
+            # pyenv-win: two install methods produce different directory layouts.
+            # choco/winget: ~\.pyenv\pyenv-win\bin  (+ \shims)
+            # pip:          ~\.pyenv\pyenv-win\pyenv-win\bin  (no shims)
+            # Try both, use whichever exists.
+            $pyenvBinCandidates = @(
                 "$env:USERPROFILE\.pyenv\pyenv-win\bin"
-                "$env:USERPROFILE\.pyenv\pyenv-win\shims"
-                "$env:APPDATA\Python\Python*\Scripts"     # pipx user install
+                "$env:USERPROFILE\.pyenv\pyenv-win\pyenv-win\bin"
+            )
+            $pyenvBin = $pyenvBinCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($pyenvBin) {
+                $pyenvRoot = Split-Path $pyenvBin -Parent
+                if ($env:PATH -notmatch [regex]::Escape($pyenvBin)) {
+                    $env:PATH = "$pyenvBin;$env:PATH"
+                }
+                # Shims dir exists on choco/winget installs, not pip
+                $pyenvShims = Join-Path $pyenvRoot 'shims'
+                if ((Test-Path $pyenvShims) -and $env:PATH -notmatch [regex]::Escape($pyenvShims)) {
+                    $env:PATH = "$pyenvShims;$env:PATH"
+                }
+                $env:PYENV      = $pyenvRoot
+                $env:PYENV_HOME = $pyenvRoot
+            }
+
+            # Other profile-injected tool paths
+            $extraPaths = @(
+                "$env:APPDATA\Python\Python*\Scripts"       # pipx user install
                 "$env:LOCALAPPDATA\Programs\oh-my-posh\bin"
             )
             foreach ($p in $extraPaths) {
-                # Resolve wildcards (e.g. Python*)
                 $resolved = Resolve-Path $p -ErrorAction SilentlyContinue
                 if ($resolved) {
                     foreach ($r in $resolved) {
@@ -678,13 +700,6 @@ function Get-ToolInventory {
                         }
                     }
                 }
-            }
-
-            # Set pyenv env vars if pyenv-win is installed
-            $pyenvRoot = "$env:USERPROFILE\.pyenv\pyenv-win"
-            if (Test-Path $pyenvRoot) {
-                $env:PYENV      = $pyenvRoot
-                $env:PYENV_HOME = $pyenvRoot
             }
 
             $results = @()
