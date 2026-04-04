@@ -308,12 +308,21 @@ function Invoke-WinSetupUpdate {
     $script:UpdateRunJob       = Start-Job -ScriptBlock {
         param($scriptPath)
         try {
+            # Jobs don't inherit Start-Transcript -- all output goes to the
+            # output pane via Receive-Job in the timer callback.
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+            Write-Host "[job] PATH: $($env:PATH -split ';' | Where-Object { $_ } | Select-Object -First 10 | Join-String -Separator ', ')..."
+            $choco = Get-Command choco -ErrorAction SilentlyContinue
+            $winget = Get-Command winget -ErrorAction SilentlyContinue
+            Write-Host "[job] choco: $(if ($choco) { $choco.Source } else { 'NOT FOUND' })"
+            Write-Host "[job] winget: $(if ($winget) { $winget.Source } else { 'NOT FOUND' })"
+            Write-Host "[job] Running: & '$scriptPath'"
             & $scriptPath 2>&1
+            Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
-            Write-Error "Job failed: $_"
+            Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
     } -ArgumentList $updateScript
     $script:UpdateRunStartTime = Get-Date
@@ -379,9 +388,11 @@ function Start-NextPackageUpdate {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+            Write-Host "[job] Running: & '$scriptPath' -Package '$packageName'"
             & $scriptPath -Package $packageName 2>&1
+            Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
-            Write-Error "Job failed: $_"
+            Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
     } -ArgumentList $updateScript, $pkg.name
     $script:UpdateRunStartTime = Get-Date

@@ -293,35 +293,38 @@ function Invoke-ToolInstallAction {
     $script:ToolActionJob = Start-Job -ScriptBlock {
         param($winsetup, $toolName, $mgr, $cmd)
         try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+            Write-Host "[job] PATH refreshed. choco: $(if (Get-Command choco -EA SilentlyContinue) { 'found' } else { 'NOT FOUND' })"
+
             # Try -InstallTool first (works for tools with an Install-* function)
             $setupScript = Join-Path $winsetup 'Setup-DevEnvironment.ps1'
             if (Test-Path $setupScript) {
-                # Quick check: does the function exist in the file?
                 $content = Get-Content $setupScript -Raw
                 $safeName = $toolName -replace '[^a-zA-Z0-9]', ''
                 if ($content -match "function Install-$safeName") {
+                    Write-Host "[job] Running: & '$setupScript' -InstallTool '$toolName'"
                     & $setupScript -InstallTool $toolName 2>&1
+                    Write-Host "[job] Exit code: $LASTEXITCODE"
                     return
                 }
             }
 
             # Fallback: install directly via package manager
-            # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
-            Write-Host "No Install-$toolName function found. Installing via $mgr directly."
+            Write-Host "[job] No Install-$toolName function. Installing via $mgr directly."
             switch ($mgr) {
-                'choco'   { choco install $cmd -y 2>&1 }
-                'winget'  { winget install $cmd --silent --accept-package-agreements --accept-source-agreements 2>&1 }
-                'pipx'    { pipx install $cmd 2>&1 }
-                'pip'     { pip install --user $cmd 2>&1 }
-                # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
-                default   { Write-Host "No install handler for manager: $mgr" }
+                'choco'  { Write-Host "[job] Running: choco install $cmd -y"; choco install $cmd -y 2>&1 }
+                'winget' { Write-Host "[job] Running: winget install $cmd"; winget install $cmd --silent --accept-package-agreements --accept-source-agreements 2>&1 }
+                'pipx'   { Write-Host "[job] Running: pipx install $cmd"; pipx install $cmd 2>&1 }
+                'pip'    { Write-Host "[job] Running: pip install --user $cmd"; pip install --user $cmd 2>&1 }
+                default  { Write-Host "[job] No install handler for manager: $mgr"; return }
             }
-            # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
+            Write-Host "[job] Exit code: $LASTEXITCODE"
             if ($LASTEXITCODE -eq 0) { Write-Host "$toolName installed." }
-            # PSScriptAnalyzer suppress-next-line PSAvoidUsingWriteHost
             else { Write-Host "$toolName install may have failed (exit code: $LASTEXITCODE)" }
         } catch {
-            Write-Error "Job failed: $_"
+            Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
     } -ArgumentList $env:WINSETUP, $name, $manager, $command
 }
@@ -345,9 +348,14 @@ function Invoke-ToolUpdateAction {
     $script:ToolActionJob = Start-Job -ScriptBlock {
         param($scriptPath, $toolName)
         try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+            Write-Host "[job] Running: & '$scriptPath' -Package '$toolName'"
             & $scriptPath -Package $toolName 2>&1
+            Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
-            Write-Error "Job failed: $_"
+            Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
     } -ArgumentList $updateScript, $t.Name.ToLower()
 }
@@ -400,11 +408,17 @@ function Invoke-ToolRemoveAction {
     $script:ToolActionJob = Start-Job -ScriptBlock {
         param($scriptPath, $toolName, $keep, $winterface)
         try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             $env:WINTERFACE = $winterface
+            $mode = if ($keep) { '-KeepFiles' } else { 'full' }
+            Write-Host "[job] Running: & '$scriptPath' -Tool '$toolName' $mode"
             if ($keep) { & $scriptPath -Tool $toolName -KeepFiles 2>&1 }
             else       { & $scriptPath -Tool $toolName 2>&1 }
+            Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
-            Write-Error "Job failed: $_"
+            Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
     } -ArgumentList $uninstallScript, $t.Name.ToLower(), $keepFiles, $wtPath
 }
