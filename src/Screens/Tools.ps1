@@ -321,7 +321,10 @@ function Invoke-ToolInstallAction {
                 default  { Write-Host "[job] No install handler for manager: $mgr"; return }
             }
             Write-Host "[job] Exit code: $LASTEXITCODE"
+            # winget returns -1978335189 (0x8A15002B) when the package is
+            # already installed or no update is available. This is a success.
             if ($LASTEXITCODE -eq 0) { Write-Host "$toolName installed." }
+            elseif ($LASTEXITCODE -eq -1978335189) { Write-Host "$toolName is already installed." }
             else { Write-Host "$toolName install may have failed (exit code: $LASTEXITCODE)" }
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
