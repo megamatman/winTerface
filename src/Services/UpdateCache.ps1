@@ -218,6 +218,12 @@ function Start-BackgroundUpdateCheck {
     $script:UpdateCheckJob   = Start-Job -ScriptBlock {
         param($scriptPath)
         try {
+            # Refresh PATH -- Start-Job runs with -NoProfile so choco/winget
+            # may not be on PATH.
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+
             . $scriptPath
 
             $choco  = Get-ChocoUpdates

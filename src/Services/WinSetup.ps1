@@ -303,10 +303,14 @@ function Invoke-WinSetupUpdate {
     $updateScript = Join-Path $env:WINSETUP 'Update-DevEnvironment.ps1'
     if (-not (Test-Path $updateScript)) { return $false }
 
-    # Launch the job
+    # Launch the job. Refresh PATH from Machine + User env vars because
+    # Start-Job runs with -NoProfile so choco/winget may not be on PATH.
     $script:UpdateRunJob       = Start-Job -ScriptBlock {
         param($scriptPath)
         try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             & $scriptPath 2>&1
         } catch {
             Write-Error "Job failed: $_"
@@ -367,10 +371,14 @@ function Start-NextPackageUpdate {
     Add-UpdateOutput -Text " Updating $($pkg.name)..."
     Add-UpdateOutput -Text $sep
 
+    # Refresh PATH in the job -- same -NoProfile fix as the full update job.
     $updateScript = Join-Path $env:WINSETUP 'Update-DevEnvironment.ps1'
     $script:UpdateRunJob       = Start-Job -ScriptBlock {
         param($scriptPath, $packageName)
         try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             & $scriptPath -Package $packageName 2>&1
         } catch {
             Write-Error "Job failed: $_"

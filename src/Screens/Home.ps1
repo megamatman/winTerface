@@ -188,8 +188,12 @@ function Build-HomeScreen {
     $Container.Add($tip3rest)
 
     # --- Inspirational quote (random on each load) ---
+    # Truncate to terminal width minus margins. Terminal.Gui v1 Labels don't
+    # wrap or clip reliably on narrow terminals.
     $quote = Get-RandomQuote
     if ($quote) {
+        $maxW = [Math]::Max(40, [Console]::WindowWidth - 8)
+        if ($quote.Length -gt $maxW) { $quote = $quote.Substring(0, $maxW - 3) + '...' }
         $quoteLabel = [Terminal.Gui.Label]::new("  $quote")
         $quoteLabel.X = 0
         $quoteLabel.Y = [Terminal.Gui.Pos]::AnchorEnd(4)
