@@ -111,22 +111,30 @@ function Build-UpdatesScreen {
     if ($script:Colors.Header) { $sectionHeader.ColorScheme = $script:Colors.Header }
     $Container.Add($sectionHeader)
 
-    # --- Column headers ---
-    $colHeader = [Terminal.Gui.Label]::new(
-        "    Tool              Current      Available    Source")
-    $colHeader.X = 0; $colHeader.Y = 4
-    $colHeader.Width = [Terminal.Gui.Dim]::Fill()
-    $Container.Add($colHeader)
-
-    $sep = [Terminal.Gui.Label]::new(
-        "  " + [string]::new([char]0x2500, 56))
-    $sep.X = 0; $sep.Y = 5
-    $sep.Width = [Terminal.Gui.Dim]::Fill()
-    $Container.Add($sep)
-
     # --- Build ListView items ---
     $allItems = $realUpdates
     $script:_UpdateItems = $allItems
+
+    # Calculate column widths dynamically from the data.
+    # Min/max bounds prevent any single value consuming the full width.
+    $nameW = [Math]::Max(6, [Math]::Min(30,
+        ($allItems | ForEach-Object { "$($_.name)".Length } | Measure-Object -Maximum).Maximum + 2))
+    $curW  = [Math]::Max(8, [Math]::Min(16,
+        ($allItems | ForEach-Object { "$($_.currentVersion)".Length } | Measure-Object -Maximum).Maximum + 2))
+    $avlW  = [Math]::Max(8, [Math]::Min(16,
+        ($allItems | ForEach-Object { "$($_.availableVersion)".Length } | Measure-Object -Maximum).Maximum + 2))
+    $script:_UpdateColWidths = @{ Name = $nameW; Current = $curW; Available = $avlW }
+
+    # --- Column headers aligned to dynamic widths ---
+    $headerText = "    " + "Tool".PadRight($nameW) + "Current".PadRight($curW) + "Available".PadRight($avlW) + "Source"
+    $colHeader = [Terminal.Gui.Label]::new($headerText)
+    $colHeader.X = 0; $colHeader.Y = 4; $colHeader.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($colHeader)
+
+    $sepLen = 4 + $nameW + $curW + $avlW + 8
+    $sep = [Terminal.Gui.Label]::new("  " + [string]::new([char]0x2500, $sepLen))
+    $sep.X = 0; $sep.Y = 5; $sep.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($sep)
 
     $listStrings = [System.Collections.Generic.List[string]]::new()
     foreach ($u in $allItems) {
@@ -251,12 +259,20 @@ function Format-UpdateRow {
     #>
     param($Item, [string]$Indicator = '')
 
+    # Column widths calculated dynamically from the dataset.
+    # Falls back to defaults if widths haven't been computed yet.
+    $nW = if ($script:_UpdateColWidths) { $script:_UpdateColWidths.Name } else { 18 }
+    $cW = if ($script:_UpdateColWidths) { $script:_UpdateColWidths.Current } else { 13 }
+    $aW = if ($script:_UpdateColWidths) { $script:_UpdateColWidths.Available } else { 13 }
+
     $prefix = if ($Indicator) { "$Indicator " } else { '' }
-    $name = "$($Item.name)".PadRight(18)
-    $cur  = "$($Item.currentVersion)".PadRight(13)
-    $avl  = if ($Item.availableVersion) { "$($Item.availableVersion)".PadRight(13) } else { '---'.PadRight(13) }
+    $nameStr = "$($Item.name)"
+    if ($nameStr.Length -gt $nW - 1) { $nameStr = $nameStr.Substring(0, $nW - 3) + '..' }
+    $name = $nameStr.PadRight($nW)
+    $cur  = "$($Item.currentVersion)".PadRight($cW)
+    $avl  = if ($Item.availableVersion) { "$($Item.availableVersion)".PadRight($aW) } else { '---'.PadRight($aW) }
     $src  = "$($Item.source)"
-    return "${prefix}${name} ${cur} ${avl} ${src}"
+    return "${prefix}${name}${cur}${avl}${src}"
 }
 
 # ---------------------------------------------------------------------------

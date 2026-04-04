@@ -72,6 +72,10 @@ function Build-ToolsScreen {
         return
     }
 
+    # Calculate name column width dynamically from the data
+    $toolNameW = [Math]::Max(8, [Math]::Min(24,
+        ($data | ForEach-Object { "$($_.Name)".Length } | Measure-Object -Maximum).Maximum + 2))
+
     $listStrings = [System.Collections.Generic.List[string]]::new()
     foreach ($t in $data) {
         $icon = switch ($t.Status) {
@@ -79,7 +83,9 @@ function Build-ToolsScreen {
             'Error' { [char]0x2717 }
             default { '?' }
         }
-        $name = "$($t.Name)".PadRight(14)
+        $nameStr = "$($t.Name)"
+        if ($nameStr.Length -gt $toolNameW - 1) { $nameStr = $nameStr.Substring(0, $toolNameW - 3) + '..' }
+        $name = $nameStr.PadRight($toolNameW)
         $ver  = "$($t.Version)"
         $listStrings.Add(" $icon $name $ver")
     }
