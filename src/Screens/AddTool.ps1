@@ -407,6 +407,80 @@ function Update-SearchJobStatus {
 $script:_SearchLists     = @()   # ordered array: choco, winget, pypi ListViews
 $script:_SearchResults   = @()   # ordered array: choco, winget, pypi result arrays
 $script:_SearchManagers  = @()   # ordered array: 'choco', 'winget', 'pipx'
+
+function Invoke-DescriptionFetch {
+    <#
+    .SYNOPSIS
+        Shows or fetches a description for a search result item.
+    .DESCRIPTION
+        If the item already has a Description (PyPI results or previously
+        cached), shows it immediately. Otherwise launches a background job
+        to fetch from choco or winget. Cancels any in-flight fetch first.
+        Called by SelectedItemChanged handlers and by Tab navigation to
+        populate the description panel for the first item in a section.
+    .PARAMETER ListIndex
+        Index into $script:_SearchResults / $script:_SearchManagers.
+    .PARAMETER ItemIndex
+        Index of the item within the result array.
+    #>
+    param([int]$ListIndex, [int]$ItemIndex)
+
+    if (-not $script:_ResultDescView) { return }
+    if ($ListIndex -lt 0 -or $ListIndex -ge $script:_SearchResults.Count) { return }
+
+    $results = $script:_SearchResults[$ListIndex]
+    if (-not $results -or $ItemIndex -lt 0 -or $ItemIndex -ge $results.Count) {
+        $script:_ResultDescView.Text = ''
+        try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+        return
+    }
+
+    $item = $results[$ItemIndex]
+
+    # Already have a description (PyPI or previously cached)
+    if ($item.Description) {
+        $script:_ResultDescView.Text = $item.Description
+        try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+        return
+    }
+
+    # Cancel any in-flight description fetch
+    if ($script:DescriptionJob) {
+        try { Stop-Job $script:DescriptionJob -ErrorAction SilentlyContinue } catch {}
+        try { Remove-Job $script:DescriptionJob -Force -ErrorAction SilentlyContinue } catch {}
+        $script:DescriptionJob = $null
+    }
+
+    $mgr = $script:_SearchManagers[$ListIndex]
+    $pkgId = if ($item.PackageId) { $item.PackageId } else { $item.Id }
+
+    if ($mgr -eq 'choco' -or $mgr -eq 'winget') {
+        $script:_ResultDescView.Text = 'Fetching description...'
+        try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+
+        $script:_DescriptionResult = @{ ListIndex = $ListIndex; ItemIndex = $ItemIndex }
+        $pkgMgrScript = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'PackageManager.ps1'
+        $script:DescriptionJob = Start-Job -ScriptBlock {
+            param($sp, $manager, $packageId)
+            try {
+                $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                            ';' +
+                            [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+                . $sp
+                if ($manager -eq 'choco') {
+                    Get-ChocoPackageDescription -Id $packageId
+                } else {
+                    Get-WingetPackageDescription -Id $packageId
+                }
+            } catch {
+                Write-Error "Job failed: $_"
+            }
+        } -ArgumentList $pkgMgrScript, $mgr, $pkgId
+    } else {
+        $script:_ResultDescView.Text = 'No description available.'
+        try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+    }
+}
 $script:_ResultDescView  = $null # description panel TextView
 
 function Add-SearchResultSection {
@@ -479,78 +553,22 @@ function Add-SearchResultSection {
         }
     })
 
-    # Highlight change -- update description panel. For PyPI results the
-    # description is already in the result data. For choco/winget results
-    # a background job fetches it lazily via Get-*PackageDescription.
+    # Highlight change -- delegates to Invoke-DescriptionFetch which handles
+    # cached descriptions (PyPI) and lazy background fetch (choco/winget).
     $listView.add_SelectedItemChanged({
         param($e)
-        if (-not $script:_ResultDescView) { return }
         $li = -1
         for ($i = 0; $i -lt $script:_SearchLists.Count; $i++) {
             if ($script:_SearchLists[$i].HasFocus) { $li = $i; break }
         }
         if ($li -lt 0) { return }
-        $results = $script:_SearchResults[$li]
         $lv = $script:_SearchLists[$li]
         if (-not $lv) { return }
-        $idx = $lv.SelectedItem
-        if ($results.Count -le 0 -or $idx -lt 0 -or $idx -ge $results.Count) {
-            $script:_ResultDescView.Text = ''
-            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
-            return
-        }
-
-        $item = $results[$idx]
-
-        # If the result already has a description (PyPI or previously fetched), show it
-        if ($item.Description) {
-            $script:_ResultDescView.Text = $item.Description
-            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
-            return
-        }
-
-        # Cancel any in-flight description fetch
-        if ($script:DescriptionJob) {
-            try { Stop-Job $script:DescriptionJob -ErrorAction SilentlyContinue } catch {}
-            try { Remove-Job $script:DescriptionJob -Force -ErrorAction SilentlyContinue } catch {}
-            $script:DescriptionJob = $null
-        }
-
-        # Determine which fetch function to use based on the manager
-        $mgr = $script:_SearchManagers[$li]
-        $pkgId = if ($item.PackageId) { $item.PackageId } else { $item.Id }
-        if ($mgr -eq 'choco' -or $mgr -eq 'winget') {
-            $script:_ResultDescView.Text = 'Fetching description...'
-            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
-
-            # Store which result we're fetching for so the poll handler
-            # can update the right entry in the results array
-            $script:_DescriptionResult = @{ ListIndex = $li; ItemIndex = $idx }
-
-            $pkgMgrScript = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'PackageManager.ps1'
-            $script:DescriptionJob = Start-Job -ScriptBlock {
-                param($sp, $manager, $packageId)
-                try {
-                    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
-                                ';' +
-                                [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-                    . $sp
-                    if ($manager -eq 'choco') {
-                        Get-ChocoPackageDescription -Id $packageId
-                    } else {
-                        Get-WingetPackageDescription -Id $packageId
-                    }
-                } catch {
-                    Write-Error "Job failed: $_"
-                }
-            } -ArgumentList $pkgMgrScript, $mgr, $pkgId
-        } else {
-            $script:_ResultDescView.Text = 'No description available.'
-            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
-        }
+        Invoke-DescriptionFetch -ListIndex $li -ItemIndex $lv.SelectedItem
     })
 
-    # Tab / Shift+Tab navigation between sections; Escape goes back
+    # Tab / Shift+Tab navigation between sections; Escape goes back.
+    # After focus change, fetch the description for item 0 of the new section.
     $listView.add_KeyPress({
         param($e)
         $key = $e.KeyEvent.Key
@@ -562,6 +580,8 @@ function Add-SearchResultSection {
             if ($li -ge 0) {
                 $nextIdx = ($li + 1) % $script:_SearchLists.Count
                 $script:_SearchLists[$nextIdx].SetFocus()
+                $nextLv = $script:_SearchLists[$nextIdx]
+                Invoke-DescriptionFetch -ListIndex $nextIdx -ItemIndex $nextLv.SelectedItem
             }
             $e.Handled = $true; return
         }
@@ -573,6 +593,8 @@ function Add-SearchResultSection {
             if ($li -ge 0) {
                 $prevIdx = ($li - 1 + $script:_SearchLists.Count) % $script:_SearchLists.Count
                 $script:_SearchLists[$prevIdx].SetFocus()
+                $prevLv = $script:_SearchLists[$prevIdx]
+                Invoke-DescriptionFetch -ListIndex $prevIdx -ItemIndex $prevLv.SelectedItem
             }
             $e.Handled = $true; return
         }
@@ -678,15 +700,11 @@ function Build-WizardSearchResults {
     Add-WizardHint -Container $Container -Y $hintY `
         -Text "Tab: next source  Enter: select  Escape: back"
 
-    # Set initial focus and description
+    # Set initial focus and fetch description for item 0 of the first section
     $script:Layout.MenuList = $chocoList
     $chocoList.SetFocus()
-
-    # Show description for first choco result if available
-    if ($script:ChocoSearchResults.Count -gt 0 -and $script:ChocoSearchResults[0].Description) {
-        $script:_ResultDescView.Text = $script:ChocoSearchResults[0].Description
-    } elseif ($script:ChocoSearchResults.Count -gt 0) {
-        $script:_ResultDescView.Text = 'No description available.'
+    if ($script:ChocoSearchResults.Count -gt 0) {
+        Invoke-DescriptionFetch -ListIndex 0 -ItemIndex 0
     }
 }
 
