@@ -95,9 +95,25 @@ function Build-AboutScreen {
     if ($script:Colors.Header) { $credit.ColorScheme = $script:Colors.Header }
     $Container.Add($credit)
 
-    $hint = [Terminal.Gui.Label]::new("  Press Escape to return to the home screen.")
+    $hint = [Terminal.Gui.Label]::new("  [Esc] Back")
     $hint.X = 0; $hint.Y = ($y + 2)
     $hint.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hint)
+
+    # A focusable view is required for key events (including Esc) to reach
+    # the global handler. Without one, Terminal.Gui v1 does not propagate
+    # keys. Use an invisible single-item ListView matching the Updates
+    # empty-state pattern.
+    $focusTarget = [System.Collections.Generic.List[string]]::new()
+    $focusTarget.Add("")
+    $focusList = [Terminal.Gui.ListView]::new($focusTarget)
+    $focusList.X = 0; $focusList.Y = ($y + 3)
+    $focusList.Width = 1; $focusList.Height = 1
+    $focusList.AllowsMarking = $false
+    if ($script:Colors.Base) { $focusList.ColorScheme = $script:Colors.Base }
+    $Container.Add($focusList)
+
+    $script:Layout.MenuList = $focusList
+    $focusList.SetFocus()
 }
