@@ -221,6 +221,13 @@ function Update-ToolDetail {
 # ---------------------------------------------------------------------------
 
 function Add-ToolsOutputPane {
+    <#
+    .SYNOPSIS
+        Adds the scrollable output pane to the tools screen.
+    .DESCRIPTION
+        Creates a framed TextView at the bottom of the container for displaying
+        background job output. Stores a reference in $script:ToolsOutputView.
+    #>
     param($Container)
     $frame = [Terminal.Gui.FrameView]::new("Output")
     $frame.X = 0; $frame.Y = [Terminal.Gui.Pos]::AnchorEnd(8)
@@ -239,6 +246,10 @@ function Add-ToolsOutputPane {
 }
 
 function Add-ToolsHints {
+    <#
+    .SYNOPSIS
+        Adds the keybinding hints bar to the bottom of the tools screen.
+    #>
     param($Container)
     $hints = [Terminal.Gui.Label]::new(
         "  [A] Add tool  [I] Install  [U] Update  [X] Remove  [O] Open location  [F5] Scan  [Esc] Back")
@@ -278,6 +289,7 @@ function Invoke-ToolInstallAction {
         a direct package manager command if the Install-* function doesn't
         exist (e.g. after an uninstall removed it from Setup-DevEnvironment.ps1).
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param([int]$Index)
     if ($script:ToolActionJob) { Add-ToolsOutput -Text "An action is already running."; return }
     $t = $script:ToolInventoryData[$Index]
@@ -341,6 +353,7 @@ function Invoke-ToolUpdateAction {
     .SYNOPSIS
         Updates an installed tool via Update-DevEnvironment.ps1 -Package.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param([int]$Index)
     if ($script:ToolActionJob) { Add-ToolsOutput -Text "An action is already running."; return }
     $t = $script:ToolInventoryData[$Index]
@@ -372,6 +385,7 @@ function Invoke-ToolRemoveAction {
     .SYNOPSIS
         Removes a tool via Uninstall-Tool.ps1, with confirmation.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param([int]$Index)
     if ($script:ToolActionJob) { Add-ToolsOutput -Text "An action is already running."; return }
     $t = $script:ToolInventoryData[$Index]

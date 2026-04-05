@@ -272,6 +272,8 @@ function Invoke-WinSetupUpdate {
     .OUTPUTS
         [bool] True if the job was started, false if cancelled or missing.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    param()
 
     # Already running?
     if ($script:UpdateRunJob) { return $false }
@@ -356,6 +358,8 @@ function Start-NextPackageUpdate {
     .SYNOPSIS
         Starts the background job for the current queue item.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    param()
     $pkg = $script:UpdatePackageQueue[$script:UpdatePackageIndex]
 
     $sep = [string]::new([char]0x2500, 42)

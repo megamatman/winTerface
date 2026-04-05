@@ -11,7 +11,6 @@ $script:WizardData = @{
     PackageId      = ''
     VerifyCommand  = ''
     ProfileAlias   = ''
-    UpdateOverride = ''
     Path           = ''   # 'Search' | 'Guided'
 }
 
@@ -29,8 +28,7 @@ $script:GuidedSteps = @(
     @{ Title = 'Package manager';            Desc = 'Which package manager installs this tool?';                                  Key = 'PackageManager'; Type = 'select'; Required = $true;  Next = 'GuidedPackageId'; Options = @('choco','winget','pipx','manual') }
     @{ Title = 'Package ID';                 Desc = 'Package name or ID used to install (e.g. ripgrep, junegunn.fzf)';           Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/]+$' }
     @{ Title = 'Verify command';             Desc = 'Command that confirms installation (e.g. rg, fzf, delta)';                  Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\.\_]+$' }
-    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'GuidedUpdate';    AllowedPattern = '^[a-zA-Z0-9\-\_\s\$\=\.\(\)''\"\\:,\|]+$' }
-    @{ Title = 'Update override (optional)'; Desc = 'Custom update command if not handled by standard update script';            Key = 'UpdateOverride'; Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/\s]+$' }
+    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\_\s\$\=\.\(\)''\"\\:,\|]+$' }
 )
 
 # ---------------------------------------------------------------------------
@@ -60,7 +58,6 @@ function Build-AddToolScreen {
         'GuidedPackageId' { Build-WizardGuidedStep -Container $Container -StepIndex 2 }
         'GuidedVerify'    { Build-WizardGuidedStep -Container $Container -StepIndex 3 }
         'GuidedAlias'     { Build-WizardGuidedStep -Container $Container -StepIndex 4 }
-        'GuidedUpdate'    { Build-WizardGuidedStep -Container $Container -StepIndex 5 }
         'Confirmation'    { Build-WizardConfirmation  -Container $Container }
         default           { Build-WizardChoosePath    -Container $Container }
     }
@@ -85,10 +82,9 @@ function Step-WizardBack {
         'GuidedPackageId' { $script:WizardStep = 'GuidedManager' }
         'GuidedVerify'    { $script:WizardStep = 'GuidedPackageId' }
         'GuidedAlias'     { $script:WizardStep = 'GuidedVerify' }
-        'GuidedUpdate'    { $script:WizardStep = 'GuidedAlias' }
         'Confirmation'    {
             if ($script:WizardData.Path -eq 'Search') { $script:WizardStep = 'ReviewFields' }
-            else { $script:WizardStep = 'GuidedUpdate' }
+            else { $script:WizardStep = 'GuidedAlias' }
         }
         default { $script:WizardStep = 'ChoosePath' }
     }
@@ -103,7 +99,7 @@ function Reset-WizardState {
     $script:WizardStep = 'ChoosePath'
     $script:WizardData = @{
         DisplayName = ''; PackageManager = ''; PackageId = ''
-        VerifyCommand = ''; ProfileAlias = ''; UpdateOverride = ''
+        VerifyCommand = ''; ProfileAlias = ''
         Path = ''
     }
     Stop-WizardSearchJobs
@@ -131,6 +127,13 @@ function Stop-WizardSearchJobs {
 # ---------------------------------------------------------------------------
 
 function Build-WizardChoosePath {
+    <#
+    .SYNOPSIS
+        Builds the initial wizard step where the user chooses Search or Guided.
+    .DESCRIPTION
+        Presents a two-option list: search package managers or enter details
+        manually via the guided wizard. Sets WizardData.Path and advances.
+    #>
     param($Container)
 
     Add-WizardHeader -Container $Container -Breadcrumb ''
@@ -173,6 +176,13 @@ function Build-WizardChoosePath {
 # ---------------------------------------------------------------------------
 
 function Build-WizardSearchInput {
+    <#
+    .SYNOPSIS
+        Builds the search input step where the user types a tool name.
+    .DESCRIPTION
+        Displays a text field for entering a package search term. Enter
+        launches concurrent choco and winget search jobs.
+    #>
     param($Container)
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Search'
@@ -247,6 +257,13 @@ function Start-WizardSearch {
 }
 
 function Build-WizardSearching {
+    <#
+    .SYNOPSIS
+        Builds the in-progress screen shown while search jobs are running.
+    .DESCRIPTION
+        Displays status labels for the choco and winget search jobs.
+        The 500ms timer advances to SearchResults when both complete.
+    #>
     param($Container)
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Search'
@@ -304,6 +321,13 @@ function Update-SearchJobStatus {
 }
 
 function Build-WizardSearchResults {
+    <#
+    .SYNOPSIS
+        Builds the split-pane search results view with choco and winget columns.
+    .DESCRIPTION
+        Displays choco results on the left, winget on the right. Selecting a
+        result populates WizardData and advances to ReviewFields.
+    #>
     param($Container)
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Search Results'
@@ -386,6 +410,13 @@ function Build-WizardSearchResults {
 # ---------------------------------------------------------------------------
 
 function Build-WizardReviewFields {
+    <#
+    .SYNOPSIS
+        Builds the field review screen shown after a search selection.
+    .DESCRIPTION
+        Displays auto-populated fields from the search result. The user can
+        continue to the diff preview or switch to guided editing.
+    #>
     param($Container)
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Review'
@@ -397,7 +428,6 @@ function Build-WizardReviewFields {
         @{ Label = 'Package ID';      Value = $script:WizardData.PackageId }
         @{ Label = 'Verify command';  Value = $script:WizardData.VerifyCommand }
         @{ Label = 'Profile alias';   Value = if ($script:WizardData.ProfileAlias) { $script:WizardData.ProfileAlias } else { '(none)' } }
-        @{ Label = 'Update override'; Value = if ($script:WizardData.UpdateOverride) { $script:WizardData.UpdateOverride } else { '(none)' } }
     )
 
     foreach ($f in $fields) {
@@ -584,6 +614,13 @@ function Add-GuidedTextInput {
 # ---------------------------------------------------------------------------
 
 function Build-WizardConfirmation {
+    <#
+    .SYNOPSIS
+        Builds the final confirmation screen with a diff preview of all changes.
+    .DESCRIPTION
+        Shows the generated code changes across Setup, Update, and profile files.
+        The user presses C to confirm and write, or Escape to go back.
+    #>
     param($Container)
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Confirmation'
@@ -682,6 +719,8 @@ function Invoke-WizardConfirm {
     .SYNOPSIS
         Executes the atomic write, registers the tool, and offers to install.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    param()
     $result = Write-ToolChanges -ToolData $script:WizardData
 
     if ($result.Success) {

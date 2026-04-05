@@ -98,7 +98,7 @@ function Build-UpdatesScreen {
         })
 
         $Container.Add($emptyList)
-        Add-OutputPane -Container $Container -Y 9
+        Add-UpdatesOutputPane -Container $Container -Y 9
         $script:Layout.MenuList = $emptyList
         $emptyList.SetFocus()
         return
@@ -214,9 +214,11 @@ function Build-UpdatesScreen {
             return
         }
 
-        # F5 previously called Switch-Screen from inside a key event handler,
-        # destroying the view that owns the event mid-dispatch. The timer
-        # re-renders on completion instead. See CONTRIBUTING.md.
+        # Switch-Screen is not called from inside this key handler (F5 deferred
+        # to avoid destroying the view mid-dispatch). Other screens use
+        # Switch-Screen directly from handlers -- this is a known pattern that
+        # works in Terminal.Gui v1 but violates the documented constraint.
+        # See CONTRIBUTING.md for context.
         if ($key -eq [Terminal.Gui.Key]::F5) {
             Add-UpdateOutput -Text "Checking for updates..."
             Start-BackgroundUpdateCheck -Force
@@ -246,7 +248,7 @@ function Build-UpdatesScreen {
     $Container.Add($hints)
 
     # Output pane takes all remaining space below the hint bar
-    Add-OutputPane -Container $Container -Y ($hintY + 1)
+    Add-UpdatesOutputPane -Container $Container -Y ($hintY + 1)
     $updateList.SetFocus()
 }
 
@@ -287,7 +289,7 @@ function Format-UpdateRow {
 # Output pane helpers
 # ---------------------------------------------------------------------------
 
-function Add-OutputPane {
+function Add-UpdatesOutputPane {
     <#
     .SYNOPSIS
         Adds a scrollable output pane to the given container.
