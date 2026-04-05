@@ -33,13 +33,51 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Confirm-WinSetupCompatibility {
+    <#
+    .SYNOPSIS
+        Verifies that a compatible winSetup installation is present.
+    .DESCRIPTION
+        Checks that $env:WINSETUP is set and points to a valid winSetup
+        directory containing Uninstall-Tool.ps1 and a Setup-DevEnvironment.ps1
+        that supports the -InstallTool parameter. Exits with error if any
+        check fails.
+    #>
+    Write-Host "`n[1/6] winSetup compatibility" -ForegroundColor Cyan
+
+    if (-not $env:WINSETUP -or -not (Test-Path $env:WINSETUP)) {
+        Write-Host "  winSetup not found." -ForegroundColor Red
+        Write-Host "  Install winSetup first: https://github.com/megamatman/winSetup" -ForegroundColor Yellow
+        Write-Host "  Then run Setup-DevEnvironment.ps1 to set `$env:WINSETUP." -ForegroundColor Yellow
+        exit 1
+    }
+
+    $uninstallScript = Join-Path $env:WINSETUP 'Uninstall-Tool.ps1'
+    if (-not (Test-Path $uninstallScript)) {
+        Write-Host "  Uninstall-Tool.ps1 not found in winSetup." -ForegroundColor Red
+        Write-Host "  Update winSetup to the latest version." -ForegroundColor Yellow
+        exit 1
+    }
+
+    $setupScript = Join-Path $env:WINSETUP 'Setup-DevEnvironment.ps1'
+    $content = Get-Content $setupScript -Raw
+    if ($content -notmatch '\-InstallTool') {
+        Write-Host "  Setup-DevEnvironment.ps1 does not support -InstallTool." -ForegroundColor Red
+        Write-Host "  Update winSetup to the latest version." -ForegroundColor Yellow
+        exit 1
+    }
+
+    Write-Host "  winSetup: $env:WINSETUP -- OK" -ForegroundColor Green
+}
+
 Write-Host "`n=== Installing winTerface ===" -ForegroundColor Cyan
+Confirm-WinSetupCompatibility
 
 # ---------------------------------------------------------------------------
-# Step 1 -- PowerShell version check (fatal)
+# Step 2 -- PowerShell version check (fatal)
 # ---------------------------------------------------------------------------
 
-Write-Host "`n[1/5] PowerShell version" -ForegroundColor Cyan
+Write-Host "`n[2/6] PowerShell version" -ForegroundColor Cyan
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Host "  winTerface requires PowerShell 7+." -ForegroundColor Red
     Write-Host "  Current version: $($PSVersionTable.PSVersion)" -ForegroundColor Red
@@ -49,10 +87,10 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 Write-Host "  PowerShell $($PSVersionTable.PSVersion) -- OK" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# Step 2 -- ConsoleGuiTools module (fatal if install fails)
+# Step 3 -- ConsoleGuiTools module (fatal if install fails)
 # ---------------------------------------------------------------------------
 
-Write-Host "`n[2/5] Microsoft.PowerShell.ConsoleGuiTools" -ForegroundColor Cyan
+Write-Host "`n[3/6] Microsoft.PowerShell.ConsoleGuiTools" -ForegroundColor Cyan
 $module = Get-Module -ListAvailable -Name Microsoft.PowerShell.ConsoleGuiTools |
     Sort-Object Version -Descending | Select-Object -First 1
 if ($module) {
@@ -84,10 +122,10 @@ if ($module) {
 }
 
 # ---------------------------------------------------------------------------
-# Step 3 -- Config directory (non-fatal)
+# Step 4 -- Config directory (non-fatal)
 # ---------------------------------------------------------------------------
 
-Write-Host "`n[3/5] Config directory" -ForegroundColor Cyan
+Write-Host "`n[4/6] Config directory" -ForegroundColor Cyan
 $configDir = Join-Path $env:USERPROFILE '.winTerface'
 if (-not (Test-Path $configDir)) {
     try {
@@ -102,10 +140,10 @@ if (-not (Test-Path $configDir)) {
 }
 
 # ---------------------------------------------------------------------------
-# Step 4 -- WINTERFACE environment variable (non-fatal)
+# Step 5 -- WINTERFACE environment variable (non-fatal)
 # ---------------------------------------------------------------------------
 
-Write-Host "`n[4/5] WINTERFACE environment variable" -ForegroundColor Cyan
+Write-Host "`n[5/6] WINTERFACE environment variable" -ForegroundColor Cyan
 try {
     [System.Environment]::SetEnvironmentVariable('WINTERFACE', $PSScriptRoot, 'User')
     $env:WINTERFACE = $PSScriptRoot
@@ -116,11 +154,11 @@ catch {
 }
 
 # ---------------------------------------------------------------------------
-# Step 5 -- Profile alias (non-fatal)
+# Step 6 -- Profile alias (non-fatal)
 # 'wti' avoids conflict with Windows Terminal's 'wt' binary on PATH.
 # ---------------------------------------------------------------------------
 
-Write-Host "`n[5/5] Profile alias" -ForegroundColor Cyan
+Write-Host "`n[6/6] Profile alias" -ForegroundColor Cyan
 if ($NoAlias) {
     Write-Host "  Skipped (-NoAlias)" -ForegroundColor DarkGray
 } else {

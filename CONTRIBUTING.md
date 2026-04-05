@@ -73,6 +73,243 @@ must be followed to avoid crashes:
   Unhandled exceptions inside .NET timer delegates propagate through
   Application.Run() and crash the process.
 
+## Terminal.Gui patterns
+
+### Screen builder structure
+
+Every screen is a function named `Build-<Name>Screen` that takes a
+`$Container` parameter (the content area view). The function:
+
+1. Adds labels, frames, and ListViews to `$Container`.
+2. Wires `.add_KeyPress`, `.add_OpenSelectedItem`, and
+   `.add_SelectedItemChanged` handlers on interactive views.
+3. Sets `$script:Layout.MenuList` to the primary focusable view.
+4. Calls `.SetFocus()` on that view.
+
+Views are constructed once inside `Build-*Screen`. They are never
+recreated inside poll callbacks or timer handlers. When a screen needs
+to refresh (e.g. after a background job completes), the timer calls
+`Switch-Screen` which calls `RemoveAll()` then `Build-*Screen` again.
+
+### Modal dialogs
+
+Modal dialogs use `[Terminal.Gui.Application]::Run($dialog)` which
+starts a nested event loop. The 500ms timer continues to fire during
+this nested loop. To prevent the timer from calling `Switch-Screen`
+and destroying the dialog's parent views:
+
+```powershell
+$script:UpdateFlowActive = $true
+try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+$script:UpdateFlowActive = $false
+```
+
+The timer poll code checks `$script:UpdateFlowActive` before calling
+`Switch-Screen` to rebuild screens.
+
+Simple dismiss dialogs (OK button only, no state changes possible from
+the timer) may omit the guard, but adding it is always safe.
+
+### Switch-Screen safety
+
+`Switch-Screen` calls `$script:Layout.Content.RemoveAll()` then
+`Build-*Screen`. This destroys all child views of the content area.
+
+**Safe to call from:**
+- The timer callback (`Invoke-BackgroundPoll`) — the standard path.
+- `OpenSelectedItem` handlers — the event fires after selection
+  completes, and the handler runs on the main thread. Works in
+  Terminal.Gui v1 because `RemoveAll()` targets the content container,
+  not the view that owns the event.
+- Named functions called from key handlers (e.g. `Step-WizardBack`).
+
+**Documented risk:** Calling `Switch-Screen` from inside a `KeyPress`
+handler destroys the view mid-dispatch. Terminal.Gui v1 tolerates this
+in practice because the content area is a separate container, but it
+violates the library's design contract. The Updates screen explicitly
+avoids this for F5 (see comment at `Updates.ps1`). Other screens use
+the pattern — this is a known inconsistency, not a bug to fix.
+
+## Background poll architecture
+
+### The 500ms timer
+
+`Start-WinTerface` in `App.ps1` registers a `MainLoop.AddTimeout`
+callback that fires every 500ms. This callback calls
+`Invoke-BackgroundPoll`, which polls all active background jobs.
+
+All UI updates from background work happen inside this callback.
+Because it runs on the `MainLoop` thread, it is safe to modify view
+properties (`.Text`, `.SetNeedsDisplay()`) and call `Switch-Screen`.
+
+### Job types
+
+The poll function checks these job types in order:
+
+| # | Job Variable | Purpose | Polled By |
+|---|---|---|---|
+| 1 | `$script:UpdateCheckJob` | Background package manager update check | `Update-BackgroundCheckStatus` |
+| 2 | `$script:UpdateRunJob` | Full or per-package update execution | Inline in `Invoke-BackgroundPoll` |
+| 3 | `$script:ChocoSearchJob`, `$script:WingetSearchJob`, `$script:PyPISearchJob` | AddTool wizard package search | `Update-SearchJobStatus` |
+| 3b | `$script:DescriptionJob` | Lazy description fetch for choco/winget results | Inline in `Invoke-BackgroundPoll` |
+| 4 | `$script:ProfileRedeployJob` | Profile redeploy via Apply-PowerShellProfile.ps1 | Inline in `Invoke-BackgroundPoll` |
+| 5 | `$script:ToolInventoryJob` | Tool inventory scan (Get-Command + --version) | Inline in `Invoke-BackgroundPoll` |
+| 6 | `$script:ToolActionJob` | Tool install/update/remove from Tools screen | Inline in `Invoke-BackgroundPoll` |
+
+### Adding a new job type
+
+1. Declare `$script:YourJob = $null` at file scope in the relevant
+   screen or service file.
+
+2. Start the job with `Start-Job -ScriptBlock { ... } -ArgumentList ...`.
+   Inside the scriptblock:
+   - Refresh PATH: `$env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('PATH', 'User')`
+   - Dot-source any needed scripts (e.g. PackageManager.ps1).
+   - Wrap the body in `try/catch`, `Write-Error` on failure.
+   - Pass data via `-ArgumentList`, not closure capture.
+
+3. Add a polling section in `Invoke-BackgroundPoll` (App.ps1):
+   ```powershell
+   if ($script:YourJob) {
+       $job = $script:YourJob
+       $jobState = try { $job.State } catch { 'Failed' }
+       if ($jobState -ne 'Running') {
+           try { $result = Receive-Job $job -ErrorAction Stop } catch {}
+           try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+           $script:YourJob = $null
+           # Update UI with $result
+       }
+   }
+   ```
+
+4. Always capture `$job.State` before `Remove-Job` — accessing State
+   on a disposed job throws.
+
+5. Always `Remove-Job` before setting the variable to `$null`.
+
+6. If the job can be cancelled (e.g. user leaves the screen), add
+   cleanup to `Stop-WizardSearchJobs` or the relevant screen's
+   teardown path in `Switch-Screen`.
+
+## How to add a new screen
+
+Use `About.ps1` as the simplest reference — it has a header, labels,
+and a hint bar with no background jobs or key handlers.
+
+### Step by step
+
+1. **Create the screen file.** Add `src/Screens/NewScreen.ps1` with a
+   function `Build-NewScreenScreen($Container)`. Follow the pattern:
+   header label, content views, hints bar, set
+   `$script:Layout.MenuList` and call `.SetFocus()`.
+
+2. **Dot-source it.** Add a line in `winTerface.ps1` in the Screens
+   section (load order matters — screens are loaded after services):
+   ```powershell
+   . (Join-Path $PSScriptRoot 'src' 'Screens' 'NewScreen.ps1')
+   ```
+
+3. **Register in Switch-Screen.** Add a case in the `switch` block in
+   `Navigation.ps1`:
+   ```powershell
+   'NewScreen' { Build-NewScreenScreen -Container $script:Layout.Content }
+   ```
+
+4. **Add navigation.** Add a menu item in `$script:HomeMenuItems`
+   (Home.ps1) or a key handler on an existing screen that calls
+   `Switch-Screen -ScreenName 'NewScreen'`.
+
+5. **Add a slash command.** Add an entry to `$script:SlashCommands`
+   in `Commands.ps1`:
+   ```powershell
+   @{ Command = '/newscreen'; Description = '...'; Screen = 'NewScreen'; Action = $null }
+   ```
+
+6. **Update the help overlay.** Add a line to the screen-specific
+   section in `Show-HelpOverlay` (App.ps1).
+
+7. **Add key handlers.** Wire `.add_KeyPress` on the primary ListView
+   for screen-specific actions. Include the standard `/` handler to
+   focus the command bar and `Escape` to return home.
+
+## How to add a new package manager search source
+
+The AddTool wizard searches multiple package managers concurrently.
+To add a new source (e.g. npm, cargo):
+
+### 1. Add a search function to PackageManager.ps1
+
+```powershell
+function Search-NewSource {
+    param([string]$Name)
+    # Query the package manager
+    # Return @(@{ Name = '...'; Version = '...'; PackageId = '...'; Description = '...'; Source = 'newsource' })
+    # Return @() on failure or no results
+}
+```
+
+Follow the existing pattern: never throw, return empty array on
+failure, wrap in try/catch, add `.SYNOPSIS`.
+
+### 2. Add state variables to AddTool.ps1
+
+At the top of the file alongside the existing job/results variables:
+
+```powershell
+$script:NewSourceSearchJob     = $null
+$script:NewSourceSearchResults = @()
+```
+
+Add `'NewSourceSearchJob'` to the `Stop-WizardSearchJobs` foreach list.
+Add `$script:NewSourceSearchResults = @()` to `Reset-WizardState`.
+
+### 3. Start the job in Start-WizardSearch
+
+Add a `Start-Job` block following the choco/winget/pypi pattern:
+
+```powershell
+$script:NewSourceSearchJob = Start-Job -ScriptBlock {
+    param($sp, $term)
+    try {
+        . $sp
+        Search-NewSource -Name $term
+    } catch { Write-Error "Job failed: $_" }
+} -ArgumentList $pkgMgrScript, $SearchTerm
+```
+
+### 4. Poll the job in Update-SearchJobStatus
+
+Add a block matching the existing pattern:
+
+```powershell
+if ($script:NewSourceSearchJob) {
+    if ($script:NewSourceSearchJob.State -ne 'Running') {
+        try { $script:NewSourceSearchResults = @(Receive-Job $script:NewSourceSearchJob -ErrorAction SilentlyContinue) }
+        catch { $script:NewSourceSearchResults = @() }
+        try { Remove-Job $script:NewSourceSearchJob -Force } catch {}
+        $script:NewSourceSearchJob = $null
+    } else { $allDone = $false }
+}
+```
+
+Update the guard at the top of `Update-SearchJobStatus` to include the
+new job variable in the early return check.
+
+### 5. Add a section in Build-WizardSearchResults
+
+Add the new source to the `$script:_SearchResults` and
+`$script:_SearchManagers` arrays. Call `Add-SearchResultSection` with
+the appropriate title, Y position, and list index.
+
+### 6. Update the search input screen
+
+Add a descriptor line in `Build-WizardSearchInput` alongside the
+existing Chocolatey/Winget/PyPI labels.
+
+### 7. Update Build-WizardSearching
+
+Add a status label for the new source in the "Searching..." screen.
+
 ## PowerShell gotchas
 
 - `-not @()` evaluates to `$true`. Use `$null -eq $variable` to
