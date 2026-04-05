@@ -232,6 +232,74 @@ function Get-PipxUpdateAvailable {
 }
 
 # ---------------------------------------------------------------------------
+# Package descriptions (lazy fetch)
+# ---------------------------------------------------------------------------
+
+function Get-ChocoPackageDescription {
+    <#
+    .SYNOPSIS
+        Fetches the summary or description for a Chocolatey package.
+    .DESCRIPTION
+        Runs 'choco info <Id>' and parses the Summary or Description field.
+        Returns the summary text, or empty string on failure or timeout.
+    .PARAMETER Id
+        The Chocolatey package identifier.
+    .OUTPUTS
+        [string] Package summary/description, or empty string.
+    #>
+    param([string]$Id)
+
+    try {
+        if (-not (Get-Command choco -ErrorAction SilentlyContinue)) { return '' }
+
+        $out = & choco info $Id --no-progress 2>$null | Out-String
+        if (-not $out) { return '' }
+
+        # Prefer Summary (one-liner), fall back to Description (multi-line)
+        if ($out -match 'Summary:\s*(.+)') {
+            return $Matches[1].Trim()
+        }
+        if ($out -match 'Description:\s*(.+)') {
+            $desc = $Matches[1].Trim()
+            if ($desc.Length -gt 200) { $desc = $desc.Substring(0, 197) + '...' }
+            return $desc
+        }
+        return ''
+    }
+    catch { return '' }
+}
+
+function Get-WingetPackageDescription {
+    <#
+    .SYNOPSIS
+        Fetches the description for a winget package.
+    .DESCRIPTION
+        Runs 'winget show --id <Id> --exact' and parses the Description field.
+        Returns the description text, or empty string on failure or timeout.
+    .PARAMETER Id
+        The winget package identifier.
+    .OUTPUTS
+        [string] Package description, or empty string.
+    #>
+    param([string]$Id)
+
+    try {
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { return '' }
+
+        $out = & winget show --id $Id --exact --disable-interactivity 2>$null | Out-String
+        if (-not $out) { return '' }
+
+        if ($out -match 'Description:\s*(.+)') {
+            $desc = $Matches[1].Trim()
+            if ($desc.Length -gt 200) { $desc = $desc.Substring(0, 197) + '...' }
+            return $desc
+        }
+        return ''
+    }
+    catch { return '' }
+}
+
+# ---------------------------------------------------------------------------
 # Package search
 # ---------------------------------------------------------------------------
 

@@ -22,6 +22,10 @@ $script:ChocoSearchResults  = @()
 $script:WingetSearchResults = @()
 $script:PyPISearchResults   = @()
 
+# Lazy description fetch job (for choco/winget results without descriptions)
+$script:DescriptionJob    = $null
+$script:_DescriptionResult = $null
+
 # Guided step definitions
 # AllowedPattern: field-specific character allowlists to prevent code injection.
 # Values are validated before advancing the wizard step.
@@ -113,9 +117,9 @@ function Reset-WizardState {
 function Stop-WizardSearchJobs {
     <#
     .SYNOPSIS
-        Cancels any running package search jobs.
+        Cancels any running package search or description fetch jobs.
     #>
-    foreach ($jobVar in @('ChocoSearchJob', 'WingetSearchJob', 'PyPISearchJob')) {
+    foreach ($jobVar in @('ChocoSearchJob', 'WingetSearchJob', 'PyPISearchJob', 'DescriptionJob')) {
         $job = Get-Variable -Name $jobVar -Scope Script -ValueOnly -ErrorAction SilentlyContinue
         if ($job) {
             try { Stop-Job $job -ErrorAction SilentlyContinue } catch {}
@@ -475,7 +479,9 @@ function Add-SearchResultSection {
         }
     })
 
-    # Highlight change -- update description panel
+    # Highlight change -- update description panel. For PyPI results the
+    # description is already in the result data. For choco/winget results
+    # a background job fetches it lazily via Get-*PackageDescription.
     $listView.add_SelectedItemChanged({
         param($e)
         if (-not $script:_ResultDescView) { return }
@@ -488,13 +494,60 @@ function Add-SearchResultSection {
         $lv = $script:_SearchLists[$li]
         if (-not $lv) { return }
         $idx = $lv.SelectedItem
-        if ($results.Count -gt 0 -and $idx -ge 0 -and $idx -lt $results.Count) {
-            $desc = $results[$idx].Description
-            $script:_ResultDescView.Text = if ($desc) { $desc } else { 'No description available.' }
-        } else {
+        if ($results.Count -le 0 -or $idx -lt 0 -or $idx -ge $results.Count) {
             $script:_ResultDescView.Text = ''
+            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+            return
         }
-        try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+
+        $item = $results[$idx]
+
+        # If the result already has a description (PyPI or previously fetched), show it
+        if ($item.Description) {
+            $script:_ResultDescView.Text = $item.Description
+            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+            return
+        }
+
+        # Cancel any in-flight description fetch
+        if ($script:DescriptionJob) {
+            try { Stop-Job $script:DescriptionJob -ErrorAction SilentlyContinue } catch {}
+            try { Remove-Job $script:DescriptionJob -Force -ErrorAction SilentlyContinue } catch {}
+            $script:DescriptionJob = $null
+        }
+
+        # Determine which fetch function to use based on the manager
+        $mgr = $script:_SearchManagers[$li]
+        $pkgId = if ($item.PackageId) { $item.PackageId } else { $item.Id }
+        if ($mgr -eq 'choco' -or $mgr -eq 'winget') {
+            $script:_ResultDescView.Text = 'Fetching description...'
+            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+
+            # Store which result we're fetching for so the poll handler
+            # can update the right entry in the results array
+            $script:_DescriptionResult = @{ ListIndex = $li; ItemIndex = $idx }
+
+            $pkgMgrScript = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'PackageManager.ps1'
+            $script:DescriptionJob = Start-Job -ScriptBlock {
+                param($sp, $manager, $packageId)
+                try {
+                    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                                ';' +
+                                [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+                    . $sp
+                    if ($manager -eq 'choco') {
+                        Get-ChocoPackageDescription -Id $packageId
+                    } else {
+                        Get-WingetPackageDescription -Id $packageId
+                    }
+                } catch {
+                    Write-Error "Job failed: $_"
+                }
+            } -ArgumentList $pkgMgrScript, $mgr, $pkgId
+        } else {
+            $script:_ResultDescView.Text = 'No description available.'
+            try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+        }
     })
 
     # Tab / Shift+Tab navigation between sections; Escape goes back

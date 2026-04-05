@@ -63,6 +63,8 @@ must be followed to avoid crashes:
   | `$script:_SearchResults` | AddTool | Ordered array of search result data arrays |
   | `$script:_SearchManagers` | AddTool | Ordered array of manager strings for search sections |
   | `$script:_ResultDescView` | AddTool | Description panel TextView on search results screen |
+  | `$script:DescriptionJob` | AddTool | Background job for lazy choco/winget description fetch |
+  | `$script:_DescriptionResult` | AddTool | Metadata (ListIndex, ItemIndex) for pending description fetch |
 
   When adding new dialogs or handlers, follow this pattern and add new
   variables to this table.

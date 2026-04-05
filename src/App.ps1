@@ -308,8 +308,40 @@ function Invoke-BackgroundPoll {
     }
 
     # 3 -- wizard search jobs
-    if ($script:ChocoSearchJob -or $script:WingetSearchJob) {
+    if ($script:ChocoSearchJob -or $script:WingetSearchJob -or $script:PyPISearchJob) {
         Update-SearchJobStatus
+    }
+
+    # 3b -- lazy description fetch job (for choco/winget search results)
+    if ($script:DescriptionJob) {
+        $job = $script:DescriptionJob
+        $jobState = try { $job.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
+            $desc = ''
+            try { $desc = @(Receive-Job $job -ErrorAction SilentlyContinue) | Select-Object -First 1 } catch {}
+            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+            $script:DescriptionJob = $null
+
+            if ([string]::IsNullOrWhiteSpace($desc)) { $desc = 'No description available.' }
+
+            # Cache the description in the results array so repeat highlights don't re-fetch
+            $meta = $script:_DescriptionResult
+            if ($meta -and $script:_SearchResults -and
+                $meta.ListIndex -ge 0 -and $meta.ListIndex -lt $script:_SearchResults.Count) {
+                $results = $script:_SearchResults[$meta.ListIndex]
+                if ($results -and $meta.ItemIndex -ge 0 -and $meta.ItemIndex -lt $results.Count) {
+                    $results[$meta.ItemIndex].Description = $desc
+                }
+            }
+
+            # Update the description panel if still on the AddTool screen
+            if ($script:_ResultDescView -and $script:CurrentScreen -eq 'AddTool') {
+                try {
+                    $script:_ResultDescView.Text = $desc
+                    $script:_ResultDescView.SetNeedsDisplay()
+                } catch {}
+            }
+        }
     }
 
     # 4 -- profile redeploy job
