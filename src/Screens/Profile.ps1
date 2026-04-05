@@ -409,6 +409,38 @@ function Show-OpenFileDialog {
     }
 }
 
+function Show-ProfileReloadReminder {
+    <#
+    .SYNOPSIS
+        Shows a modal reminder to reload the profile after a successful redeploy.
+    #>
+    $okBtn = [Terminal.Gui.Button]::new("_OK")
+    $okBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
+    $dialog = [Terminal.Gui.Dialog]::new("Profile Redeployed", 62, 12,
+        [Terminal.Gui.Button[]]@($okBtn))
+
+    $lines = @(
+        " Your profile has been updated. To apply changes to"
+        " this session run:"
+        ""
+        "     . `$PROFILE"
+        ""
+        " New terminal sessions will load the updated profile"
+        " automatically."
+    )
+    $y = 1
+    foreach ($line in $lines) {
+        $lbl = [Terminal.Gui.Label]::new($line)
+        $lbl.X = 1; $lbl.Y = $y; $lbl.Width = [Terminal.Gui.Dim]::Fill(1)
+        $dialog.Add($lbl)
+        $y++
+    }
+
+    $script:UpdateFlowActive = $true
+    try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+    $script:UpdateFlowActive = $false
+}
+
 function Show-VSCodeNotFoundDialog {
     <#
     .SYNOPSIS

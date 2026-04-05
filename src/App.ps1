@@ -343,6 +343,11 @@ function Invoke-BackgroundPoll {
             try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
             $script:ProfileRedeployJob = $null
 
+            # Show reload reminder after a successful redeploy
+            if ($jobState -eq 'Completed' -and $script:CurrentScreen -eq 'Profile') {
+                Show-ProfileReloadReminder
+            }
+
             if ($script:CurrentScreen -eq 'Profile') {
                 Switch-Screen -ScreenName 'Profile'
             }
