@@ -785,6 +785,7 @@ function Update-WinSetupPath {
             try {
                 $backup = "$profilePath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
                 Copy-Item $profilePath $backup -ErrorAction Stop
+                Remove-OldBackups -SourceFile $profilePath -Keep 3
                 $content = Get-Content -Path $profilePath -Raw -ErrorAction Stop
                 if ($content -match [regex]::Escape($oldPath)) {
                     $updated = $content -replace [regex]::Escape($oldPath), $NewPath

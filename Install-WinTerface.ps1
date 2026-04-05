@@ -146,6 +146,11 @@ Set-Alias wti Invoke-WinTerface
             } else {
                 $backup = "$ProfilePath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
                 Copy-Item $ProfilePath $backup
+                # Prune old backups, keep most recent 3
+                $base = Split-Path $ProfilePath -Leaf
+                Get-ChildItem (Split-Path $ProfilePath) -Filter "$base.bak-*" |
+                    Sort-Object Name -Descending | Select-Object -Skip 3 |
+                    Remove-Item -Force -ErrorAction SilentlyContinue
                 Write-Host "  Backed up: $backup" -ForegroundColor DarkGray
                 Add-Content -Path $ProfilePath -Value $aliasBlock -Encoding UTF8
                 Write-Host "  Added 'wti' alias to profile" -ForegroundColor Green

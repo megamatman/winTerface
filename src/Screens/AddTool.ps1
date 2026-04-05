@@ -641,6 +641,7 @@ function Save-NewToolRegistration {
 
         $backup = "$wtWinSetup.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
         Copy-Item $wtWinSetup $backup -ErrorAction SilentlyContinue
+        Remove-OldBackups -SourceFile $wtWinSetup -Keep 3
 
         $wsContent = Get-Content $wtWinSetup
         $newEntry = "    @{ Name = '$($script:WizardData.DisplayName)'; Command = '$($script:WizardData.VerifyCommand)'; Manager = '$($script:WizardData.PackageManager)'; Desc = '$($script:WizardData.DisplayName) tool.' }"
