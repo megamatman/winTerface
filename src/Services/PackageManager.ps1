@@ -352,13 +352,16 @@ function Search-WingetPackage {
 function Search-PyPI {
     <#
     .SYNOPSIS
-        Looks up a package on PyPI by exact name.
+        Searches PyPI for packages matching the given term.
     .DESCRIPTION
-        Queries the PyPI JSON API for the given package name. Returns a
-        single-element array on success or an empty array if the package
-        does not exist. This is an exact name lookup, not a fuzzy search.
+        Stage 1: exact name lookup via the PyPI JSON API.
+        Stage 2: tries common name variations (python-<term>, py<term>,
+        <term>-cli, <term>-python) as additional exact lookups. PyPI has
+        no public fuzzy search API, so this provides partial matching
+        by convention. Duplicates are removed. Limited to 5 additional
+        results to avoid excessive API calls.
     .PARAMETER Term
-        The exact PyPI package name to look up.
+        The package name or search term to look up.
     .OUTPUTS
         [array] Each element: @{ Name; Id; Version; Description; Source = 'pypi' }
     #>
@@ -370,25 +373,71 @@ function Search-PyPI {
         [string]$Term
     )
 
-    try {
-        $response = Invoke-RestMethod "https://pypi.org/pypi/$Term/json" -TimeoutSec 10 -ErrorAction Stop
-        $info = $response.info
-        if (-not $info) { return @() }
+    $results = @()
+    $seen = @{}
 
-        return @(@{
-            Name        = $info.name
-            Id          = $info.name
-            Version     = $info.version
-            Description = $info.summary
-            Source      = 'pypi'
-        })
+    # Helper: query a single package and return a result hashtable or $null
+    function Get-PyPIPackage {
+        param([string]$PackageName)
+        try {
+            $response = Invoke-RestMethod "https://pypi.org/pypi/$PackageName/json" -TimeoutSec 10 -ErrorAction Stop
+            $info = $response.info
+            if (-not $info) { return $null }
+
+            # Description fallback chain: summary -> truncated description -> default
+            $desc = $info.summary
+            if ([string]::IsNullOrWhiteSpace($desc) -and $info.description) {
+                $desc = $info.description
+                if ($desc.Length -gt 200) { $desc = $desc.Substring(0, 197) + '...' }
+            }
+            if ([string]::IsNullOrWhiteSpace($desc)) { $desc = 'No description available.' }
+
+            return @{
+                Name        = $info.name
+                Id          = $info.name
+                Version     = $info.version
+                Description = $desc
+                Source      = 'pypi'
+            }
+        }
+        catch { return $null }
+    }
+
+    try {
+        # Stage 1: exact name lookup
+        $exact = Get-PyPIPackage -PackageName $Term
+        if ($exact) {
+            $results += $exact
+            $seen[$exact.Name.ToLower()] = $true
+        }
+
+        # Stage 2: common name variations (PyPI has no fuzzy search API)
+        $termLower = $Term.ToLower()
+        $variations = @(
+            "python-$termLower"
+            "py$termLower"
+            "$termLower-cli"
+            "$termLower-python"
+            "$termLower-tool"
+        )
+
+        $maxAdditional = 5
+        $added = 0
+        foreach ($v in $variations) {
+            if ($added -ge $maxAdditional) { break }
+            if ($seen.ContainsKey($v)) { continue }
+            $pkg = Get-PyPIPackage -PackageName $v
+            if ($pkg -and -not $seen.ContainsKey($pkg.Name.ToLower())) {
+                $results += $pkg
+                $seen[$pkg.Name.ToLower()] = $true
+                $added++
+            }
+        }
+
+        return $results
     }
     catch {
-        # 404 = package not found (expected), anything else is a real failure
-        if ($_.Exception.Response.StatusCode.value__ -eq 404) {
-            return @()
-        }
         Write-Warning "PyPI search failed: $_"
-        return @()
+        return $results
     }
 }
