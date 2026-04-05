@@ -202,7 +202,7 @@ function Show-HelpOverlay {
         " ----------------------------------------------------------"
         "  Up / Down     Navigate lists"
         "  Enter         Select or confirm"
-        "  Escape        Go back to previous screen"
+        "  Escape        Return to Home"
         "  Tab           Cycle slash command completion"
         "  F1            Show this help"
         "  /             Focus the command bar"

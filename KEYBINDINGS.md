@@ -11,7 +11,7 @@ These keys work on every screen.
 | `F1` | Open help overlay |
 | `/` | Focus the slash command bar |
 | `Tab` | Cycle slash command tab completion |
-| `Esc` | Dismiss autocomplete, go back one level, or return to previous screen |
+| `Esc` | Dismiss autocomplete, go back one level, or return to Home |
 | `Ctrl+Q` | Quit winTerface |
 | `Up` / `Down` | Navigate lists |
 | `Enter` | Select or confirm |

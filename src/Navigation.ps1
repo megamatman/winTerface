@@ -1,8 +1,7 @@
 # Navigation.ps1 - Screen switching, focus management, keybinding routing,
 #                   and autocomplete overlay management
 
-$script:CurrentScreen    = 'Home'
-$script:PreviousScreen   = 'Home'
+$script:CurrentScreen = 'Home'
 $script:AutocompleteSuggestions = @()
 
 function Switch-Screen {
@@ -37,8 +36,7 @@ function Switch-Screen {
         default   { Build-HomeScreen    -Container $script:Layout.Content }
     }
 
-    $script:PreviousScreen = $script:CurrentScreen
-    $script:CurrentScreen  = $ScreenName
+    $script:CurrentScreen = $ScreenName
     $script:Layout.Content.SetNeedsDisplay()
 }
 
@@ -61,7 +59,7 @@ function Invoke-GlobalKeyHandler {
         return $true
     }
 
-    # Escape -- dismiss autocomplete, or navigate back to previous screen
+    # Escape -- dismiss autocomplete, or navigate to Home
     if ($key -eq [Terminal.Gui.Key]::Esc) {
         if ($script:Layout.AutocompleteOverlay) {
             Hide-AutocompleteOverlay
@@ -76,10 +74,7 @@ function Invoke-GlobalKeyHandler {
         }
 
         if ($script:CurrentScreen -ne 'Home') {
-            $target = if ($script:PreviousScreen -and $script:PreviousScreen -ne $script:CurrentScreen) {
-                $script:PreviousScreen
-            } else { 'Home' }
-            Switch-Screen -ScreenName $target
+            Switch-Screen -ScreenName 'Home'
             return $true
         }
         return $false

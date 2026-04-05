@@ -95,7 +95,7 @@ function Build-AboutScreen {
     if ($script:Colors.Header) { $credit.ColorScheme = $script:Colors.Header }
     $Container.Add($credit)
 
-    $hint = [Terminal.Gui.Label]::new("  [Esc] Back")
+    $hint = [Terminal.Gui.Label]::new("  [Esc] Home")
     $hint.X = 0; $hint.Y = ($y + 2)
     $hint.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hint.ColorScheme = $script:Colors.StatusWarn }
