@@ -152,14 +152,28 @@ function Build-WizardChoosePath {
     $optList.AllowsMarking = $false
     if ($script:Colors.Menu) { $optList.ColorScheme = $script:Colors.Menu }
 
-    # Descriptions for each option
-    $desc1 = [Terminal.Gui.Label]::new("    Search choco, winget, and PyPI to find and register a tool automatically.")
-    $desc1.X = 0; $desc1.Y = 7; $desc1.Width = [Terminal.Gui.Dim]::Fill()
-    $Container.Add($desc1)
+    # Dynamic description label -- updates when the highlighted option changes.
+    # Stored at $script: scope so the SelectedItemChanged handler can update it.
+    $script:_ChoosePathDesc = [Terminal.Gui.Label]::new("")
+    $script:_ChoosePathDesc.X = 4; $script:_ChoosePathDesc.Y = 7
+    $script:_ChoosePathDesc.Width = [Terminal.Gui.Dim]::Fill(4); $script:_ChoosePathDesc.Height = 2
+    $Container.Add($script:_ChoosePathDesc)
 
-    $desc2 = [Terminal.Gui.Label]::new("    Provide the tool name, package ID, and profile settings yourself.")
-    $desc2.X = 0; $desc2.Y = 9; $desc2.Width = [Terminal.Gui.Dim]::Fill()
-    $Container.Add($desc2)
+    $script:_ChoosePathDescriptions = @(
+        "Search choco, winget, and PyPI to find and register a tool`nautomatically. Best for well-known CLI tools."
+        "Provide the tool name, package ID, and profile settings yourself.`nBest for tools not in package manager search."
+    )
+    # Show description for the initially selected item
+    $script:_ChoosePathDesc.Text = $script:_ChoosePathDescriptions[0]
+
+    $optList.add_SelectedItemChanged({
+        param($e)
+        $idx = $script:Layout.MenuList.SelectedItem
+        if ($idx -ge 0 -and $idx -lt $script:_ChoosePathDescriptions.Count) {
+            $script:_ChoosePathDesc.Text = $script:_ChoosePathDescriptions[$idx]
+            $script:_ChoosePathDesc.SetNeedsDisplay()
+        }
+    })
 
     $optList.add_OpenSelectedItem({
         param($e)
@@ -173,7 +187,7 @@ function Build-WizardChoosePath {
         Switch-Screen -ScreenName 'AddTool'
     })
 
-    Add-WizardHint -Container $Container -Y 11 -Text "Enter to select, Escape to cancel"
+    Add-WizardHint -Container $Container -Y 10 -Text "Enter to select, Escape to cancel"
 
     $Container.Add($optList)
     $script:Layout.MenuList = $optList

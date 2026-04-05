@@ -57,6 +57,8 @@ must be followed to avoid crashes:
   | `$script:_RemovingToolName` | Tools | Tool name being uninstalled (for cleanup) |
   | `$script:_ElevWarningResult` | WinSetup | Return value from elevation warning dialog |
   | `$script:_UpdateColWidths` | Updates | Column widths calculated from dataset for table formatting |
+  | `$script:_ChoosePathDesc` | AddTool | Dynamic description label on choose-path screen |
+  | `$script:_ChoosePathDescriptions` | AddTool | Description strings array for choose-path options |
 
   When adding new dialogs or handlers, follow this pattern and add new
   variables to this table.
