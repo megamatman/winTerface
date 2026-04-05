@@ -97,7 +97,3 @@ winTerface/
     Services/                 winSetup interface, package managers, update cache, tool writer
     Screens/                  Home, Updates, Tools, AddTool, Profile, Config, About
 ```
-
-## Created by
-
-Matt Lawrence
