@@ -310,13 +310,10 @@ function Update-BackgroundCheckStatus {
         }
         try { Add-UpdateOutput -Text $msg } catch {}
 
-        # Refresh whichever screen is visible
+        # Refresh whichever screen is visible. Home uses in-place label
+        # updates to avoid a full view tree rebuild (see Update-HomeStatus).
         if ($script:CurrentScreen -eq 'Home') {
-            $saved = if ($script:Layout.MenuList) { $script:Layout.MenuList.SelectedItem } else { 0 }
-            Switch-Screen -ScreenName 'Home'
-            if ($script:Layout.MenuList -and $saved -ge 0) {
-                $script:Layout.MenuList.SelectedItem = $saved
-            }
+            Update-HomeStatus
         }
         elseif ($script:CurrentScreen -eq 'Updates' -and
                -not $script:UpdateRunJob -and

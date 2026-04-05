@@ -1,5 +1,13 @@
 ﻿# Home.ps1 - Dashboard home screen with status panel and main menu
 
+# Status label references for in-place updates (avoids full screen rebuild)
+$script:_HomeStatusLabels = @{
+    Environment = $null
+    Profile     = $null
+    Updates     = $null
+    LastChecked = $null
+}
+
 $script:HomeMenuItems = @(
     @{ Name = 'Tools';   Description = 'View and manage installed tools';  Screen = 'Tools' }
     @{ Name = 'Updates'; Description = 'Check and apply updates';          Screen = 'Updates' }
@@ -86,6 +94,7 @@ function Add-HomeStatusPanel {
         -Text "  $bullet Environment health      $($wsStatus.Message)" `
         -Status $wsState -X 0 -Y 3
     $Container.Add($wsLabel)
+    $script:_HomeStatusLabels.Environment = $wsLabel
 
     # Profile health + drift. Health checks section presence; drift compares
     # deployed $PROFILE against the source in winSetup. Both can be true
@@ -106,6 +115,7 @@ function Add-HomeStatusPanel {
         -Text "  $bullet Profile health          $profMessage" `
         -Status $profState -X 0 -Y 4
     $Container.Add($profLabel)
+    $script:_HomeStatusLabels.Profile = $profLabel
 
     # Updates available
     $updateInfo  = Get-AvailableUpdateCount
@@ -119,6 +129,7 @@ function Add-HomeStatusPanel {
         -Text "  $bullet Updates available       $($updateInfo.Message)" `
         -Status $updState -X 0 -Y 5
     $Container.Add($updLabel)
+    $script:_HomeStatusLabels.Updates = $updLabel
 
     # Last checked
     $lastCheck      = Get-LastUpdateCheck
@@ -127,6 +138,52 @@ function Add-HomeStatusPanel {
         -Text "  $bullet Last checked            $lastCheck" `
         -Status $lastCheckState -X 0 -Y 6
     $Container.Add($lastLabel)
+    $script:_HomeStatusLabels.LastChecked = $lastLabel
+}
+
+function Update-HomeStatus {
+    <#
+    .SYNOPSIS
+        Updates the Home screen status labels in place without rebuilding the view tree.
+    .DESCRIPTION
+        Recalculates update count and last-checked values and updates the existing
+        labels directly. Called by the timer after a background update check completes,
+        avoiding a full Switch-Screen rebuild for the Home screen. Only updates the
+        two labels that change after an update check (updates available, last checked).
+    #>
+    $labels = $script:_HomeStatusLabels
+    if (-not $labels -or -not $labels.Updates -or -not $labels.LastChecked) { return }
+
+    $bullet = [char]0x25CF
+
+    # Updates available
+    $updateInfo = Get-AvailableUpdateCount
+    $updState = switch ($updateInfo.Status) {
+        'UpToDate'  { 'Ok' }
+        'Available' { 'Warn' }
+        'Checking'  { 'Warn' }
+        default     { 'Warn' }
+    }
+    $labels.Updates.Text = "  $bullet Updates available       $($updateInfo.Message)"
+    $scheme = switch ($updState) {
+        'Ok'   { $script:Colors.StatusOk }
+        'Warn' { $script:Colors.StatusWarn }
+        default { $script:Colors.StatusWarn }
+    }
+    if ($scheme) { $labels.Updates.ColorScheme = $scheme }
+    $labels.Updates.SetNeedsDisplay()
+
+    # Last checked
+    $lastCheck      = Get-LastUpdateCheck
+    $lastCheckState = if ($lastCheck -eq 'Never') { 'Warn' } else { 'Ok' }
+    $labels.LastChecked.Text = "  $bullet Last checked            $lastCheck"
+    $scheme = switch ($lastCheckState) {
+        'Ok'   { $script:Colors.StatusOk }
+        'Warn' { $script:Colors.StatusWarn }
+        default { $script:Colors.StatusWarn }
+    }
+    if ($scheme) { $labels.LastChecked.ColorScheme = $scheme }
+    $labels.LastChecked.SetNeedsDisplay()
 }
 
 function Add-HomeMenuList {

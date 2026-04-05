@@ -65,6 +65,7 @@ must be followed to avoid crashes:
   | `$script:_ResultDescView` | AddTool | Description panel TextView on search results screen |
   | `$script:DescriptionJob` | AddTool | Background job for lazy choco/winget description fetch |
   | `$script:_DescriptionResult` | AddTool | Metadata (ListIndex, ItemIndex) for pending description fetch |
+  | `$script:_HomeStatusLabels` | Home | Status label references for in-place updates (avoids full rebuild) |
 
   When adding new dialogs or handlers, follow this pattern and add new
   variables to this table.
