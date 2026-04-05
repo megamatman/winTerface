@@ -4,28 +4,18 @@ $script:ProfileHealthData = @()
 $script:ProfileDriftData  = $null
 $script:ProfileDetailView = $null
 
-function Build-ProfileScreen {
+function Add-ProfileHeaderInfo {
     <#
     .SYNOPSIS
-        Builds the profile management screen.
+        Constructs the header info section of the profile screen.
     .DESCRIPTION
-        Shows profile path info, drift status, a health checks list (left),
-        a context-sensitive detail panel (right), and action keybindings.
+        Adds the screen title, F5 refresh hint, profile path, source path,
+        and drift status indicator labels to the container.
     .PARAMETER Container
-        The parent view to add screen elements to.
+        The parent view to add header elements to.
     #>
-    param(
-        [Parameter(Mandatory)]
-        $Container
-    )
+    param($Container)
 
-    # --- Gather data ---
-    $healthResult = Get-ProfileHealthResults
-    $script:ProfileHealthData = if ($healthResult.Sections) { $healthResult.Sections } else { @() }
-
-    $script:ProfileDriftData = Get-ProfileDriftStatus
-
-    # --- Header info ---
     $header = [Terminal.Gui.Label]::new("  PROFILE MANAGEMENT")
     $header.X = 0; $header.Y = 0; $header.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.Header) { $header.ColorScheme = $script:Colors.Header }
@@ -64,28 +54,26 @@ function Build-ProfileScreen {
     }
     $driftLabel = New-StatusLabel -Text "  Drift:   $driftText" -Status $driftColor -X 0 -Y 3
     $Container.Add($driftLabel)
+}
 
-    # --- Error display if health check failed ---
-    if ($healthResult.Error) {
-        $errLabel = [Terminal.Gui.Label]::new("  $($healthResult.Error)")
-        $errLabel.X = 0; $errLabel.Y = 5; $errLabel.Width = [Terminal.Gui.Dim]::Fill()
-        if ($script:Colors.StatusError) { $errLabel.ColorScheme = $script:Colors.StatusError }
-        $Container.Add($errLabel)
-        return
-    }
-
-    # --- Left panel: Health checks ---
-    $leftFrame = [Terminal.Gui.FrameView]::new("Health Checks")
-    $leftFrame.X = 0; $leftFrame.Y = 5
-    $leftFrame.Width  = [Terminal.Gui.Dim]::Percent(42)
-    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(3)
-    if ($script:Colors.Base) { $leftFrame.ColorScheme = $script:Colors.Base }
+function Add-ProfileHealthList {
+    <#
+    .SYNOPSIS
+        Constructs the health checks ListView with selection and key handlers.
+    .DESCRIPTION
+        Builds a ListView from $script:ProfileHealthData with pass/fail icons,
+        wires SelectedItemChanged to update the detail panel, and attaches
+        key handlers for R/D/C/O/F5// actions.
+    .PARAMETER LeftFrame
+        The FrameView that will contain the health checks ListView.
+    #>
+    param($LeftFrame)
 
     $listStrings = [System.Collections.Generic.List[string]]::new()
     foreach ($s in $script:ProfileHealthData) {
         $icon = switch ($s.Status) {
-            'Pass' { [char]0x2713 }   # ✓
-            'Fail' { [char]0x2717 }   # ✗
+            'Pass' { [char]0x2713 }   # checkmark
+            'Fail' { [char]0x2717 }   # x-mark
             default { '?' }
         }
         $listStrings.Add(" $icon $($s.Section)")
@@ -98,32 +86,7 @@ function Build-ProfileScreen {
     $healthList.AllowsMarking = $false
     if ($script:Colors.Menu) { $healthList.ColorScheme = $script:Colors.Menu }
 
-    $leftFrame.Add($healthList)
-    $Container.Add($leftFrame)
-
-    # --- Right panel: Detail ---
-    $rightFrame = [Terminal.Gui.FrameView]::new("Detail")
-    $rightFrame.X = [Terminal.Gui.Pos]::Percent(42); $rightFrame.Y = 5
-    $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
-    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(3)
-    if ($script:Colors.Base) { $rightFrame.ColorScheme = $script:Colors.Base }
-
-    $detailView = [Terminal.Gui.TextView]::new()
-    $detailView.X = 0; $detailView.Y = 0
-    $detailView.Width  = [Terminal.Gui.Dim]::Fill()
-    $detailView.Height = [Terminal.Gui.Dim]::Fill()
-    $detailView.ReadOnly = $true
-    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
-
-    $rightFrame.Add($detailView)
-    $Container.Add($rightFrame)
-
-    $script:ProfileDetailView = $detailView
-
-    # Populate detail for first item
-    if ($script:ProfileHealthData.Count -gt 0) {
-        Update-ProfileDetail -Index 0
-    }
+    $LeftFrame.Add($healthList)
 
     # --- Selection change updates detail ---
     # $healthList is function-local and resolves to $null in .NET event
@@ -184,13 +147,110 @@ function Build-ProfileScreen {
         }
     })
 
-    # --- Hints ---
+    return $healthList
+}
+
+function Add-ProfileDetailPanel {
+    <#
+    .SYNOPSIS
+        Constructs the detail panel for the profile screen.
+    .DESCRIPTION
+        Creates a FrameView with a read-only TextView for displaying health check
+        details. Stores a reference to the TextView in $script:ProfileDetailView.
+    .PARAMETER Container
+        The parent view to add the detail panel to.
+    #>
+    param($Container)
+
+    $rightFrame = [Terminal.Gui.FrameView]::new("Detail")
+    $rightFrame.X = [Terminal.Gui.Pos]::Percent(42); $rightFrame.Y = 5
+    $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
+    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(3)
+    if ($script:Colors.Base) { $rightFrame.ColorScheme = $script:Colors.Base }
+
+    $detailView = [Terminal.Gui.TextView]::new()
+    $detailView.X = 0; $detailView.Y = 0
+    $detailView.Width  = [Terminal.Gui.Dim]::Fill()
+    $detailView.Height = [Terminal.Gui.Dim]::Fill()
+    $detailView.ReadOnly = $true
+    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
+
+    $rightFrame.Add($detailView)
+    $Container.Add($rightFrame)
+    $script:ProfileDetailView = $detailView
+}
+
+function Add-ProfileHintBar {
+    <#
+    .SYNOPSIS
+        Constructs the keybinding hints bar for the profile screen.
+    .DESCRIPTION
+        Adds a label at the bottom of the container showing available key actions.
+    .PARAMETER Container
+        The parent view to add the hint bar to.
+    #>
+    param($Container)
+
     $hints = [Terminal.Gui.Label]::new(
         "  [R] Redeploy  [D] View drift  [C] Compare  [O] Open in VS Code  [F5] Refresh  [Esc] Back")
     $hints.X = 0; $hints.Y = [Terminal.Gui.Pos]::AnchorEnd(2)
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hints)
+}
+
+function Build-ProfileScreen {
+    <#
+    .SYNOPSIS
+        Builds the profile management screen.
+    .DESCRIPTION
+        Shows profile path info, drift status, a health checks list (left),
+        a context-sensitive detail panel (right), and action keybindings.
+    .PARAMETER Container
+        The parent view to add screen elements to.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
+
+    # --- Gather data ---
+    $healthResult = Get-ProfileHealthResults
+    $script:ProfileHealthData = if ($healthResult.Sections) { $healthResult.Sections } else { @() }
+    $script:ProfileDriftData = Get-ProfileDriftStatus
+
+    # --- Header info ---
+    Add-ProfileHeaderInfo -Container $Container
+
+    # --- Error display if health check failed ---
+    if ($healthResult.Error) {
+        $errLabel = [Terminal.Gui.Label]::new("  $($healthResult.Error)")
+        $errLabel.X = 0; $errLabel.Y = 5; $errLabel.Width = [Terminal.Gui.Dim]::Fill()
+        if ($script:Colors.StatusError) { $errLabel.ColorScheme = $script:Colors.StatusError }
+        $Container.Add($errLabel)
+        return
+    }
+
+    # --- Left panel: Health checks ---
+    $leftFrame = [Terminal.Gui.FrameView]::new("Health Checks")
+    $leftFrame.X = 0; $leftFrame.Y = 5
+    $leftFrame.Width  = [Terminal.Gui.Dim]::Percent(42)
+    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(3)
+    if ($script:Colors.Base) { $leftFrame.ColorScheme = $script:Colors.Base }
+
+    $healthList = Add-ProfileHealthList -LeftFrame $leftFrame
+    $Container.Add($leftFrame)
+
+    # --- Right panel ---
+    Add-ProfileDetailPanel -Container $Container
+
+    # Populate detail for first item
+    if ($script:ProfileHealthData.Count -gt 0) {
+        Update-ProfileDetail -Index 0
+    }
+
+    # --- Hints ---
+    Add-ProfileHintBar -Container $Container
 
     $script:Layout.MenuList = $healthList
     $healthList.SetFocus()

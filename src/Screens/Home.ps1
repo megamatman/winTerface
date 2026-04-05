@@ -49,15 +49,15 @@ function Get-RandomQuote {
     return ''
 }
 
-function Build-HomeScreen {
+function Add-HomeStatusPanel {
     <#
     .SYNOPSIS
-        Populates the content area with the home dashboard.
+        Builds the status indicator panel showing environment health metrics.
     .DESCRIPTION
-        Builds the STATUS indicator panel and the MAIN MENU list view.
-        Status items are colour-coded based on environment state.
+        Adds the STATUS header and four colour-coded status rows (environment
+        health, profile health, updates available, last checked) to the container.
     .PARAMETER Container
-        The parent view to add home screen elements to.
+        The parent view to add status elements to.
     #>
     param(
         [Parameter(Mandatory)]
@@ -127,6 +127,25 @@ function Build-HomeScreen {
         -Text "  $bullet Last checked            $lastCheck" `
         -Status $lastCheckState -X 0 -Y 6
     $Container.Add($lastLabel)
+}
+
+function Add-HomeMenuList {
+    <#
+    .SYNOPSIS
+        Builds the main menu ListView with navigation and key handlers.
+    .DESCRIPTION
+        Constructs a formatted ListView from $script:HomeMenuItems, wires
+        OpenSelectedItem to navigate screens, and wires '/' to focus the
+        command bar. Returns the ListView for focus management.
+    .PARAMETER Container
+        The parent view to add the menu to.
+    .OUTPUTS
+        Terminal.Gui.ListView. The constructed menu list view.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
 
     # --- Main menu section header ---
     $menuHeader = [Terminal.Gui.Label]::new("  MAIN MENU")
@@ -174,8 +193,24 @@ function Build-HomeScreen {
     })
 
     $Container.Add($menuList)
+    return $menuList
+}
 
-    # --- Quick start tips ---
+function Add-HomeQuickStartTips {
+    <#
+    .SYNOPSIS
+        Adds the quick start tips section to the home screen.
+    .DESCRIPTION
+        Renders three tip lines below the menu. The F1 key label is split into
+        a separate label so it can be styled with the warning colour scheme.
+    .PARAMETER Container
+        The parent view to add tips to.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
+
     $tipsY = 15
     $tipsHeader = [Terminal.Gui.Label]::new("  QUICK START")
     $tipsHeader.X = 0; $tipsHeader.Y = $tipsY
@@ -204,6 +239,22 @@ function Build-HomeScreen {
     $tip3rest = [Terminal.Gui.Label]::new(" at any time for a full list of keybindings and commands.")
     $tip3rest.X = 12; $tip3rest.Y = $tipsY + 3; $tip3rest.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($tip3rest)
+}
+
+function Add-HomeFooter {
+    <#
+    .SYNOPSIS
+        Adds the inspirational quote and quit hint to the home screen.
+    .DESCRIPTION
+        Renders a random quote near the bottom of the container and a Ctrl+Q
+        quit hint anchored to the top-right corner.
+    .PARAMETER Container
+        The parent view to add footer elements to.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
 
     # --- Inspirational quote (random on each load) ---
     # Truncate to terminal width minus margins. Terminal.Gui v1 Labels don't
@@ -226,6 +277,29 @@ function Build-HomeScreen {
     $quitHint.Width = 14
     if ($script:Colors.StatusWarn) { $quitHint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($quitHint)
+}
+
+function Build-HomeScreen {
+    <#
+    .SYNOPSIS
+        Populates the content area with the home dashboard.
+    .DESCRIPTION
+        Builds the STATUS indicator panel and the MAIN MENU list view.
+        Status items are colour-coded based on environment state.
+        Delegates to Add-HomeStatusPanel, Add-HomeMenuList,
+        Add-HomeQuickStartTips, and Add-HomeFooter.
+    .PARAMETER Container
+        The parent view to add home screen elements to.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
+
+    Add-HomeStatusPanel   -Container $Container
+    $menuList = Add-HomeMenuList -Container $Container
+    Add-HomeQuickStartTips -Container $Container
+    Add-HomeFooter        -Container $Container
 
     # Store reference for focus management
     $script:Layout.MenuList = $menuList

@@ -11,33 +11,18 @@ $script:ConfigDetailView   = $null
 # Screen builder
 # ---------------------------------------------------------------------------
 
-function Build-ConfigScreen {
+function Add-ConfigSectionList {
     <#
     .SYNOPSIS
-        Builds the configuration management screen.
+        Constructs the section ListView with selection and key handlers.
     .DESCRIPTION
-        Left panel: section list. Right panel: context-sensitive content
-        that updates when the user arrows through sections.
-    .PARAMETER Container
-        The parent view to add screen elements to.
+        Creates a ListView with the four config sections (winTerface, winSetup,
+        Tools, Update cache), wires SelectedItemChanged to update the detail
+        panel, and attaches key handlers for E/S/V/C/R/T// actions.
+    .PARAMETER LeftFrame
+        The FrameView that will contain the section ListView.
     #>
-    param(
-        [Parameter(Mandatory)]
-        $Container
-    )
-
-    # --- Header ---
-    $header = [Terminal.Gui.Label]::new("  CONFIGURATION")
-    $header.X = 0; $header.Y = 0; $header.Width = [Terminal.Gui.Dim]::Fill()
-    if ($script:Colors.Header) { $header.ColorScheme = $script:Colors.Header }
-    $Container.Add($header)
-
-    # --- Left panel: section list ---
-    $leftFrame = [Terminal.Gui.FrameView]::new("Sections")
-    $leftFrame.X = 0; $leftFrame.Y = 2
-    $leftFrame.Width  = [Terminal.Gui.Dim]::Percent(25)
-    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(2)
-    if ($script:Colors.Base) { $leftFrame.ColorScheme = $script:Colors.Base }
+    param($LeftFrame)
 
     $sections = [System.Collections.Generic.List[string]]::new()
     $sections.Add(" winTerface")
@@ -51,32 +36,12 @@ function Build-ConfigScreen {
     $sectionList.AllowsMarking = $false
     if ($script:Colors.Menu) { $sectionList.ColorScheme = $script:Colors.Menu }
 
-    $leftFrame.Add($sectionList)
-    $Container.Add($leftFrame)
-
-    # --- Right panel: content ---
-    $rightFrame = [Terminal.Gui.FrameView]::new("Content")
-    $rightFrame.X = [Terminal.Gui.Pos]::Percent(25); $rightFrame.Y = 2
-    $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
-    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(2)
-    if ($script:Colors.Base) { $rightFrame.ColorScheme = $script:Colors.Base }
-
-    $detailView = [Terminal.Gui.TextView]::new()
-    $detailView.X = 0; $detailView.Y = 0
-    $detailView.Width  = [Terminal.Gui.Dim]::Fill()
-    $detailView.Height = [Terminal.Gui.Dim]::Fill()
-    $detailView.ReadOnly = $true
-    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
-
-    $rightFrame.Add($detailView)
-    $Container.Add($rightFrame)
-    $script:ConfigDetailView = $detailView
+    $LeftFrame.Add($sectionList)
 
     # Restore last-viewed section
     if ($script:ConfigSectionIndex -ge 0 -and $script:ConfigSectionIndex -lt 4) {
         $sectionList.SelectedItem = $script:ConfigSectionIndex
     }
-    Update-ConfigDetail -Index $script:ConfigSectionIndex
 
     # --- Selection change updates content ---
     # $sectionList is function-local; use $script:Layout.MenuList in handlers.
@@ -144,13 +109,95 @@ function Build-ConfigScreen {
         }
     })
 
-    # --- Hints ---
+    return $sectionList
+}
+
+function Add-ConfigDetailPanel {
+    <#
+    .SYNOPSIS
+        Constructs the detail panel for the config screen.
+    .DESCRIPTION
+        Creates a FrameView with a read-only TextView for displaying section content.
+        Stores a reference to the TextView in $script:ConfigDetailView.
+    .PARAMETER Container
+        The parent view to add the detail panel to.
+    #>
+    param($Container)
+
+    $rightFrame = [Terminal.Gui.FrameView]::new("Content")
+    $rightFrame.X = [Terminal.Gui.Pos]::Percent(25); $rightFrame.Y = 2
+    $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
+    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(2)
+    if ($script:Colors.Base) { $rightFrame.ColorScheme = $script:Colors.Base }
+
+    $detailView = [Terminal.Gui.TextView]::new()
+    $detailView.X = 0; $detailView.Y = 0
+    $detailView.Width  = [Terminal.Gui.Dim]::Fill()
+    $detailView.Height = [Terminal.Gui.Dim]::Fill()
+    $detailView.ReadOnly = $true
+    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
+
+    $rightFrame.Add($detailView)
+    $Container.Add($rightFrame)
+    $script:ConfigDetailView = $detailView
+}
+
+function Add-ConfigHintBar {
+    <#
+    .SYNOPSIS
+        Constructs the keybinding hints bar for the config screen.
+    .DESCRIPTION
+        Adds a label at the bottom of the container showing available key actions.
+    .PARAMETER Container
+        The parent view to add the hint bar to.
+    #>
+    param($Container)
+
     $hints = [Terminal.Gui.Label]::new(
         "  [E] Edit  [S] Save  [V] Verify  [C] Clear cache  [R] Refresh  [T] Open Tools screen  [Esc] Back")
     $hints.X = 0; $hints.Y = [Terminal.Gui.Pos]::AnchorEnd(1)
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hints)
+}
+
+function Build-ConfigScreen {
+    <#
+    .SYNOPSIS
+        Builds the configuration management screen.
+    .DESCRIPTION
+        Left panel: section list. Right panel: context-sensitive content
+        that updates when the user arrows through sections.
+    .PARAMETER Container
+        The parent view to add screen elements to.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
+
+    # --- Header ---
+    $header = [Terminal.Gui.Label]::new("  CONFIGURATION")
+    $header.X = 0; $header.Y = 0; $header.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.Header) { $header.ColorScheme = $script:Colors.Header }
+    $Container.Add($header)
+
+    # --- Left panel: section list ---
+    $leftFrame = [Terminal.Gui.FrameView]::new("Sections")
+    $leftFrame.X = 0; $leftFrame.Y = 2
+    $leftFrame.Width  = [Terminal.Gui.Dim]::Percent(25)
+    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(2)
+    if ($script:Colors.Base) { $leftFrame.ColorScheme = $script:Colors.Base }
+
+    $sectionList = Add-ConfigSectionList -LeftFrame $leftFrame
+    $Container.Add($leftFrame)
+
+    # --- Right panel ---
+    Add-ConfigDetailPanel -Container $Container
+    Update-ConfigDetail -Index $script:ConfigSectionIndex
+
+    # --- Hints ---
+    Add-ConfigHintBar -Container $Container
 
     # Start tool inventory loading if we don't have data yet
     if (-not $script:ToolInventoryData -and -not $script:ToolInventoryJob) {

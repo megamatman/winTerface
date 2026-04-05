@@ -4,54 +4,19 @@ $script:ToolsOutputView = $null
 $script:ToolsOutputText = ''
 $script:ToolActionJob   = $null
 
-function Build-ToolsScreen {
+function Add-ToolsListView {
     <#
     .SYNOPSIS
-        Builds the tools screen with inventory list, detail panel, and actions.
+        Constructs the tools ListView with data loading, formatting, and key handlers.
     .DESCRIPTION
-        Left panel: tool list from Get-ToolInventory (background loaded).
-        Right panel: detail for the selected tool with context-sensitive actions.
-    .PARAMETER Container
-        The parent view to add screen elements to.
+        Loads tool inventory data, formats each tool as a status-icon + name + version
+        string, creates a ListView, and wires SelectedItemChanged and KeyPress handlers
+        (A/I/U/X/O/F5//) onto it. Returns $null if data is still loading (caller should
+        show a loading label instead).
+    .PARAMETER LeftFrame
+        The FrameView that will contain the ListView.
     #>
-    param(
-        [Parameter(Mandatory)]
-        $Container
-    )
-
-    # --- Header ---
-    $header = [Terminal.Gui.Label]::new("  TOOLS")
-    $header.X = 0; $header.Y = 0; $header.Width = [Terminal.Gui.Dim]::Fill()
-    if ($script:Colors.Header) { $header.ColorScheme = $script:Colors.Header }
-    $Container.Add($header)
-
-    $refreshHint = [Terminal.Gui.Label]::new("[F5 Refresh]")
-    $refreshHint.X = [Terminal.Gui.Pos]::AnchorEnd(14); $refreshHint.Y = 0; $refreshHint.Width = 13
-    if ($script:Colors.StatusWarn) { $refreshHint.ColorScheme = $script:Colors.StatusWarn }
-    $Container.Add($refreshHint)
-
-    # --- Left panel: tool list ---
-    $leftFrame = [Terminal.Gui.FrameView]::new("Tools")
-    $leftFrame.X = 0; $leftFrame.Y = 2
-    $leftFrame.Width  = [Terminal.Gui.Dim]::Percent(45)
-    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(8)
-    if ($script:Colors.Base) { $leftFrame.ColorScheme = $script:Colors.Base }
-
-    # --- Right panel: detail ---
-    $rightFrame = [Terminal.Gui.FrameView]::new("Detail")
-    $rightFrame.X = [Terminal.Gui.Pos]::Percent(45); $rightFrame.Y = 2
-    $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
-    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(8)
-    if ($script:Colors.Base) { $rightFrame.ColorScheme = $script:Colors.Base }
-
-    $detailView = [Terminal.Gui.TextView]::new()
-    $detailView.X = 0; $detailView.Y = 0
-    $detailView.Width  = [Terminal.Gui.Dim]::Fill()
-    $detailView.Height = [Terminal.Gui.Dim]::Fill()
-    $detailView.ReadOnly = $true
-    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
-    $rightFrame.Add($detailView)
-    $script:_ToolDetailView = $detailView
+    param($LeftFrame)
 
     # Build tool list from inventory data
     if (-not $script:ToolInventoryData -and -not $script:ToolInventoryJob) {
@@ -64,12 +29,8 @@ function Build-ToolsScreen {
         $loadLabel = [Terminal.Gui.Label]::new(" Scanning tools...")
         $loadLabel.X = 0; $loadLabel.Y = 0; $loadLabel.Width = [Terminal.Gui.Dim]::Fill()
         if ($script:Colors.StatusWarn) { $loadLabel.ColorScheme = $script:Colors.StatusWarn }
-        $leftFrame.Add($loadLabel)
-        $Container.Add($leftFrame)
-        $Container.Add($rightFrame)
-        Add-ToolsOutputPane -Container $Container
-        Add-ToolsHints -Container $Container
-        return
+        $LeftFrame.Add($loadLabel)
+        return $null
     }
 
     # Calculate name column width dynamically from the data
@@ -96,9 +57,7 @@ function Build-ToolsScreen {
     $toolList.AllowsMarking = $false
     if ($script:Colors.Menu) { $toolList.ColorScheme = $script:Colors.Menu }
 
-    $leftFrame.Add($toolList)
-    $Container.Add($leftFrame)
-    $Container.Add($rightFrame)
+    $LeftFrame.Add($toolList)
 
     # Show first tool's detail
     if ($data.Count -gt 0) { Update-ToolDetail -Index 0 }
@@ -170,11 +129,86 @@ function Build-ToolsScreen {
         }
     })
 
+    return $toolList
+}
+
+function Add-ToolsDetailPanel {
+    <#
+    .SYNOPSIS
+        Constructs the detail panel for the tools screen.
+    .DESCRIPTION
+        Creates a FrameView with a read-only TextView for displaying tool details.
+        Stores a reference to the TextView in $script:_ToolDetailView.
+    .PARAMETER Container
+        The parent view to add the detail panel to.
+    #>
+    param($Container)
+
+    $rightFrame = [Terminal.Gui.FrameView]::new("Detail")
+    $rightFrame.X = [Terminal.Gui.Pos]::Percent(45); $rightFrame.Y = 2
+    $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
+    $rightFrame.Height = [Terminal.Gui.Dim]::Fill(8)
+    if ($script:Colors.Base) { $rightFrame.ColorScheme = $script:Colors.Base }
+
+    $detailView = [Terminal.Gui.TextView]::new()
+    $detailView.X = 0; $detailView.Y = 0
+    $detailView.Width  = [Terminal.Gui.Dim]::Fill()
+    $detailView.Height = [Terminal.Gui.Dim]::Fill()
+    $detailView.ReadOnly = $true
+    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
+    $rightFrame.Add($detailView)
+    $script:_ToolDetailView = $detailView
+
+    $Container.Add($rightFrame)
+}
+
+function Build-ToolsScreen {
+    <#
+    .SYNOPSIS
+        Builds the tools screen with inventory list, detail panel, and actions.
+    .DESCRIPTION
+        Left panel: tool list from Get-ToolInventory (background loaded).
+        Right panel: detail for the selected tool with context-sensitive actions.
+    .PARAMETER Container
+        The parent view to add screen elements to.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
+
+    # --- Header ---
+    $header = [Terminal.Gui.Label]::new("  TOOLS")
+    $header.X = 0; $header.Y = 0; $header.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.Header) { $header.ColorScheme = $script:Colors.Header }
+    $Container.Add($header)
+
+    $refreshHint = [Terminal.Gui.Label]::new("[F5 Refresh]")
+    $refreshHint.X = [Terminal.Gui.Pos]::AnchorEnd(14); $refreshHint.Y = 0; $refreshHint.Width = 13
+    if ($script:Colors.StatusWarn) { $refreshHint.ColorScheme = $script:Colors.StatusWarn }
+    $Container.Add($refreshHint)
+
+    # --- Left panel ---
+    $leftFrame = [Terminal.Gui.FrameView]::new("Tools")
+    $leftFrame.X = 0; $leftFrame.Y = 2
+    $leftFrame.Width  = [Terminal.Gui.Dim]::Percent(45)
+    $leftFrame.Height = [Terminal.Gui.Dim]::Fill(8)
+    if ($script:Colors.Base) { $leftFrame.ColorScheme = $script:Colors.Base }
+
+    # --- Right panel ---
+    Add-ToolsDetailPanel -Container $Container
+
+    # --- Tool list (may return $null if still loading) ---
+    $toolList = Add-ToolsListView -LeftFrame $leftFrame
+
+    $Container.Add($leftFrame)
     Add-ToolsOutputPane -Container $Container
     Add-ToolsHints -Container $Container
 
-    $script:Layout.MenuList = $toolList
-    $toolList.SetFocus()
+    if ($toolList) {
+        $script:Layout.MenuList = $toolList
+        $toolList.SetFocus()
+    }
 }
 
 # ---------------------------------------------------------------------------

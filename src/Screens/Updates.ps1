@@ -4,31 +4,27 @@ $script:UpdateOutputView = $null
 $script:UpdateOutputText = ''
 $script:_UpdateListStrings = $null   # mutable List<string> backing the ListView
 
-function Build-UpdatesScreen {
+function Add-UpdatesHeader {
     <#
     .SYNOPSIS
-        Builds the Updates screen with update table, action hints, and output pane.
+        Builds the Updates screen header with title, last-checked info, and F5 hint.
     .DESCRIPTION
-        Shows a table of available updates from the cache. The user can toggle
-        items with Space, select all with A, trigger per-tool updates with U,
-        run a full update with Ctrl+A, and refresh with F5. A scrollable output
-        pane at the bottom streams live output when an update is running.
+        Adds the UPDATES title label, the last-checked timestamp (with checking
+        indicator if active), and the F5 refresh hint anchored to the right.
     .PARAMETER Container
-        The parent view to add screen elements to.
+        The parent view to add header elements to.
     #>
     param(
         [Parameter(Mandatory)]
         $Container
     )
 
-    # --- Header ---
     $header = [Terminal.Gui.Label]::new("  UPDATES")
     $header.X = 0; $header.Y = 0
     $header.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.Header) { $header.ColorScheme = $script:Colors.Header }
     $Container.Add($header)
 
-    # --- Last checked + refresh hint ---
     $lastCheck    = Get-LastUpdateCheck
     $checkingNote = if ($script:UpdateCheckState -eq 'Checking') { '  (checking...)' } else { '' }
     $lastLine = [Terminal.Gui.Label]::new("  Last checked: ${lastCheck}${checkingNote}")
@@ -43,66 +39,100 @@ function Build-UpdatesScreen {
     $refreshHint.Y = 1; $refreshHint.Width = 23
     if ($script:Colors.StatusWarn) { $refreshHint.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($refreshHint)
+}
 
-    # --- Load cached updates ---
-    $cache   = Get-UpdateCache
-    $updates = if ($cache -and $cache.updates) { @($cache.updates) } else { @() }
+function Add-UpdatesEmptyState {
+    <#
+    .SYNOPSIS
+        Renders the empty state when no updates are available.
+    .DESCRIPTION
+        Shows an "all up to date" message, a tip label, a focusable single-item
+        ListView (required for key event routing), and the output pane. Wires
+        F5 and '/' key handlers on the empty list. Returns $true so the caller
+        can return early.
+    .PARAMETER Container
+        The parent view to add elements to.
+    .OUTPUTS
+        System.Boolean. Always returns $true to signal the caller to return.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
 
-    # Only show tools that have a known available update
-    $realUpdates = @($updates | Where-Object {
-        $_.availableVersion -and $_.availableVersion -ne ''
+    $msgLabel = [Terminal.Gui.Label]::new("  All tools are up to date.")
+    $msgLabel.X = 0; $msgLabel.Y = 3
+    $msgLabel.Width = [Terminal.Gui.Dim]::Fill()
+    if ($script:Colors.StatusOk) { $msgLabel.ColorScheme = $script:Colors.StatusOk }
+    $Container.Add($msgLabel)
+
+    $tipLabel = [Terminal.Gui.Label]::new("  Press F5 or type /check-for-updates to check for new versions.")
+    $tipLabel.X = 0; $tipLabel.Y = 5
+    $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($tipLabel)
+
+    # A focusable view must always exist. Without one, key events including
+    # F5 and Escape do not reach global handlers. Single-item ListView
+    # provides reliable focus even when no updates are available.
+    $emptyOptions = [System.Collections.Generic.List[string]]::new()
+    $emptyOptions.Add("  [F5] Check for updates   [Esc] Back to home")
+    $emptyList = [Terminal.Gui.ListView]::new($emptyOptions)
+    $emptyList.X = 0; $emptyList.Y = 7
+    $emptyList.Width = [Terminal.Gui.Dim]::Fill()
+    $emptyList.Height = 1
+    $emptyList.AllowsMarking = $false
+    if ($script:Colors.StatusWarn) { $emptyList.ColorScheme = $script:Colors.StatusWarn }
+
+    $emptyList.add_KeyPress({
+        param($e)
+        $key = $e.KeyEvent.Key
+
+        # F5 -- same as /check-for-updates
+        if ($key -eq [Terminal.Gui.Key]::F5) {
+            Add-UpdateOutput -Text "Checking for updates..."
+            Start-BackgroundUpdateCheck -Force
+            $e.Handled = $true
+            return
+        }
+        # '/' -- jump to command bar
+        if ([int]$key -eq 47) {
+            $script:Layout.CommandInput.Text = '/'
+            $script:Layout.CommandInput.SetFocus()
+            $script:Layout.CommandInput.CursorPosition = 1
+            $e.Handled = $true
+        }
     })
 
-    if ($realUpdates.Count -eq 0) {
-        $msgLabel = [Terminal.Gui.Label]::new("  All tools are up to date.")
-        $msgLabel.X = 0; $msgLabel.Y = 3
-        $msgLabel.Width = [Terminal.Gui.Dim]::Fill()
-        if ($script:Colors.StatusOk) { $msgLabel.ColorScheme = $script:Colors.StatusOk }
-        $Container.Add($msgLabel)
+    $Container.Add($emptyList)
+    Add-UpdatesOutputPane -Container $Container -Y 9
+    $script:Layout.MenuList = $emptyList
+    $emptyList.SetFocus()
+    return $true
+}
 
-        $tipLabel = [Terminal.Gui.Label]::new("  Press F5 or type /check-for-updates to check for new versions.")
-        $tipLabel.X = 0; $tipLabel.Y = 5
-        $tipLabel.Width = [Terminal.Gui.Dim]::Fill()
-        $Container.Add($tipLabel)
-
-        # A focusable view must always exist. Without one, key events including
-        # F5 and Escape do not reach global handlers. Single-item ListView
-        # provides reliable focus even when no updates are available.
-        $emptyOptions = [System.Collections.Generic.List[string]]::new()
-        $emptyOptions.Add("  [F5] Check for updates   [Esc] Back to home")
-        $emptyList = [Terminal.Gui.ListView]::new($emptyOptions)
-        $emptyList.X = 0; $emptyList.Y = 7
-        $emptyList.Width = [Terminal.Gui.Dim]::Fill()
-        $emptyList.Height = 1
-        $emptyList.AllowsMarking = $false
-        if ($script:Colors.StatusWarn) { $emptyList.ColorScheme = $script:Colors.StatusWarn }
-
-        $emptyList.add_KeyPress({
-            param($e)
-            $key = $e.KeyEvent.Key
-
-            # F5 -- same as /check-for-updates
-            if ($key -eq [Terminal.Gui.Key]::F5) {
-                Add-UpdateOutput -Text "Checking for updates..."
-                Start-BackgroundUpdateCheck -Force
-                $e.Handled = $true
-                return
-            }
-            # '/' -- jump to command bar
-            if ([int]$key -eq 47) {
-                $script:Layout.CommandInput.Text = '/'
-                $script:Layout.CommandInput.SetFocus()
-                $script:Layout.CommandInput.CursorPosition = 1
-                $e.Handled = $true
-            }
-        })
-
-        $Container.Add($emptyList)
-        Add-UpdatesOutputPane -Container $Container -Y 9
-        $script:Layout.MenuList = $emptyList
-        $emptyList.SetFocus()
-        return
-    }
+function Add-UpdatesListView {
+    <#
+    .SYNOPSIS
+        Builds the update list with column headers, ListView, marks, and key handlers.
+    .DESCRIPTION
+        Constructs the AVAILABLE UPDATES section: section header, dynamic column
+        headers, separator, a markable ListView pre-selecting all updatable items,
+        and key handlers for A (select all), U (update selected), Ctrl+R (full
+        update), F5 (refresh), and '/' (command bar). Returns a hashtable with
+        the ListView and its computed height for layout.
+    .PARAMETER Container
+        The parent view to add elements to.
+    .PARAMETER Updates
+        Array of update cache entries with availableVersion set.
+    .OUTPUTS
+        Hashtable with keys ListView and ListHeight.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container,
+        [Parameter(Mandatory)]
+        [array]$Updates
+    )
 
     # --- Section header ---
     $sectionHeader = [Terminal.Gui.Label]::new("  AVAILABLE UPDATES")
@@ -112,7 +142,7 @@ function Build-UpdatesScreen {
     $Container.Add($sectionHeader)
 
     # --- Build ListView items ---
-    $allItems = $realUpdates
+    $allItems = $Updates
     $script:_UpdateItems = $allItems
 
     # Calculate column widths dynamically from the data.
@@ -236,20 +266,71 @@ function Build-UpdatesScreen {
     })
 
     $Container.Add($updateList)
-    $script:Layout.MenuList = $updateList
 
-    # --- Hint bar ---
-    $hintY = 6 + $listHeight + 1
+    return @{ ListView = $updateList; ListHeight = $listHeight }
+}
+
+function Add-UpdatesHintBar {
+    <#
+    .SYNOPSIS
+        Adds the keyboard shortcut hint bar below the update list.
+    .DESCRIPTION
+        Renders a single label showing available key bindings (Space, A, U,
+        Ctrl+R, F5, Esc) styled with the warning colour scheme.
+    .PARAMETER Container
+        The parent view to add the hint bar to.
+    .PARAMETER Y
+        The Y position for the hint bar.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container,
+        [Parameter(Mandatory)]
+        [int]$Y
+    )
+
     $hints = [Terminal.Gui.Label]::new(
         "  [Space] Toggle  [A] All  [U] Update  [Ctrl+R] Update all  [F5] Check  [Esc] Back")
-    $hints.X = 0; $hints.Y = $hintY
+    $hints.X = 0; $hints.Y = $Y
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
     $Container.Add($hints)
+}
 
-    # Output pane takes all remaining space below the hint bar
+function Build-UpdatesScreen {
+    <#
+    .SYNOPSIS
+        Builds the Updates screen with update table, action hints, and output pane.
+    .DESCRIPTION
+        Wiring stub that delegates to Add-UpdatesHeader, Add-UpdatesEmptyState,
+        Add-UpdatesListView, Add-UpdatesHintBar, and Add-UpdatesOutputPane.
+    .PARAMETER Container
+        The parent view to add screen elements to.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        $Container
+    )
+
+    Add-UpdatesHeader -Container $Container
+
+    # Load cached updates; filter to tools with a known available version
+    $cache   = Get-UpdateCache
+    $updates = if ($cache -and $cache.updates) { @($cache.updates) } else { @() }
+    $realUpdates = @($updates | Where-Object { $_.availableVersion -and $_.availableVersion -ne '' })
+
+    if ($realUpdates.Count -eq 0) {
+        Add-UpdatesEmptyState -Container $Container
+        return
+    }
+
+    $result = Add-UpdatesListView -Container $Container -Updates $realUpdates
+    $script:Layout.MenuList = $result.ListView
+
+    $hintY = 6 + $result.ListHeight + 1
+    Add-UpdatesHintBar -Container $Container -Y $hintY
     Add-UpdatesOutputPane -Container $Container -Y ($hintY + 1)
-    $updateList.SetFocus()
+    $result.ListView.SetFocus()
 }
 
 # ---------------------------------------------------------------------------
