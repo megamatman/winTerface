@@ -44,7 +44,7 @@ On first launch, winTerface prompts for the path to your winSetup directory and 
 | `F1` | Open help overlay |
 | `/` | Focus the slash command bar |
 | `Tab` | Cycle slash command completion |
-| `Esc` | Go back one level or dismiss overlay |
+| `Esc` | Go back to previous screen or dismiss overlay |
 | `Ctrl+Q` | Quit winTerface |
 | `Up` / `Down` | Navigate lists |
 | `Enter` | Select or confirm |

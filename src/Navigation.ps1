@@ -61,7 +61,7 @@ function Invoke-GlobalKeyHandler {
         return $true
     }
 
-    # Escape -- dismiss autocomplete, or navigate back to Home
+    # Escape -- dismiss autocomplete, or navigate back to previous screen
     if ($key -eq [Terminal.Gui.Key]::Esc) {
         if ($script:Layout.AutocompleteOverlay) {
             Hide-AutocompleteOverlay

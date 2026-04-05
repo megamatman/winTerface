@@ -4,7 +4,7 @@ The Profile screen monitors the deployed PowerShell profile (`$PROFILE`) against
 
 ## Opening the Profile screen
 
-Press `Esc` to return to Home, then select **Profile** from the menu. Or type `/profile` in the command bar from any screen.
+From any screen, type `/profile` in the command bar. Or press `Esc` to go back, navigate to the Home menu, and select **Profile**.
 
 ## Understanding health status
 

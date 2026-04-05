@@ -75,7 +75,7 @@ function Add-UpdatesEmptyState {
     # F5 and Escape do not reach global handlers. Single-item ListView
     # provides reliable focus even when no updates are available.
     $emptyOptions = [System.Collections.Generic.List[string]]::new()
-    $emptyOptions.Add("  [F5] Check for updates   [Esc] Back to home")
+    $emptyOptions.Add("  [F5] Check for updates   [Esc] Back")
     $emptyList = [Terminal.Gui.ListView]::new($emptyOptions)
     $emptyList.X = 0; $emptyList.Y = 7
     $emptyList.Width = [Terminal.Gui.Dim]::Fill()
