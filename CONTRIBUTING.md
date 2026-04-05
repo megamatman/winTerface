@@ -334,4 +334,4 @@ Add a status label for the new source in the "Searching..." screen.
 - Every function has a comment block describing purpose, parameters,
   and return value.
 - All file I/O in try/catch with clear error messages.
-- No hardcoded paths -- derive from `$env:WINSETUP` or `$env:USERPROFILE`.
+- No hardcoded paths. Derive from `$env:WINSETUP` or `$env:USERPROFILE`.

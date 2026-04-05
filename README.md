@@ -1,17 +1,13 @@
 # winTerface
 
-Terminal UI for managing a Windows 11 development environment configured by [winSetup](https://github.com/megamatman/winSetup). Keyboard-driven, pane-based, with slash commands. Replaces manual config file editing, update checking, and tool management with a single interactive console.
+Terminal UI for managing a Windows 11 development environment configured by [winSetup](https://github.com/megamatman/winSetup). Keyboard-driven, pane-based, with slash commands and background job polling. Replaces manual config file editing, update checking, and tool management with a single interactive console.
 
-> **Note:** winTerface uses Terminal.Gui via ConsoleGuiTools. Certain patterns
-> -- nested `Application.Run`, `Write-Host` in callbacks, `Switch-Screen` from
-> key handlers -- are architectural constraints. See
-> [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+## Requirements
 
-## Prerequisites
-
-- **PowerShell 7+**
-- **[winSetup](https://github.com/megamatman/winSetup)** installed and configured (`$env:WINSETUP` set)
-- **Microsoft.PowerShell.ConsoleGuiTools** module (installed automatically by the install script)
+- Windows 11
+- PowerShell 7+
+- [winSetup](https://github.com/megamatman/winSetup) installed and configured (`$env:WINSETUP` set)
+- Microsoft.PowerShell.ConsoleGuiTools module (installed automatically by the installer)
 
 ## Installation
 
@@ -21,79 +17,131 @@ cd winTerface
 .\Install-WinTerface.ps1
 ```
 
-The install script:
-1. Checks PowerShell 7+
-2. Installs/upgrades ConsoleGuiTools
-3. Creates `~\.winTerface\` config directory
-4. Sets `WINTERFACE` User environment variable
-5. Adds `wti` alias to your PowerShell profile
+The installer verifies winSetup compatibility, installs ConsoleGuiTools, creates the config directory, sets the `WINTERFACE` environment variable, and adds a `wti` alias to your PowerShell profile. Safe to run multiple times.
 
-Safe to run multiple times.
+Launch with `wti` in any PowerShell 7 session, or run `.\winTerface.ps1` directly.
 
-## First run
-
-```powershell
-wti
-```
-
-Or run directly:
-
-```powershell
-.\winTerface.ps1
-```
-
-On first launch, winTerface asks for the path to your winSetup directory. It validates that `Setup-DevEnvironment.ps1` exists before saving.
+On first launch, winTerface prompts for the path to your winSetup directory and validates that `Setup-DevEnvironment.ps1` exists before saving.
 
 ## Screens
 
-- **Home** -- Status dashboard, main menu, quick start tips
-- **Updates** -- Check for updates across choco, winget, and pipx (with PyPI version checking). Per-tool or full updates with streaming output
-- **Tools** -- View all managed tools with version and status. Install, update, remove, or add new tools via the wizard
-- **Profile** -- Health checks for all 22 profile sections, drift detection, VS Code diff, one-click redeploy
-- **Config** -- Edit winTerface settings, manage winSetup path, view update cache
+| Screen | Description |
+|--------|-------------|
+| Home | Status dashboard showing environment health, profile status, update count, and main menu. |
+| Updates | Lists available updates from Chocolatey, winget, and pipx. Per-tool or full updates with streaming output. |
+| Tools | Inventory of all managed tools with version and status. Install, update, remove, or register new tools. |
+| Add Tool | Multi-step wizard for registering a new tool via package search (Chocolatey, winget, PyPI) or manual entry. |
+| Profile | Health checks for all expected profile sections, drift detection against the winSetup source, and one-click redeploy. |
+| Config | Edit winTerface settings, manage the winSetup path, and view the update cache. |
+| About | Version, environment info, and project links. |
 
-## Keybindings
+## Key bindings
+
+### Global
 
 | Key | Action |
-|---|---|
-| Up / Down | Navigate lists |
-| Enter | Select or confirm |
-| Escape | Go back one level |
-| Tab | Cycle slash command completion |
-| F1 | Show help overlay |
-| / | Focus the command bar |
-| Ctrl+Q | Quit |
+|-----|--------|
+| `F1` | Open help overlay |
+| `/` | Focus the slash command bar |
+| `Tab` | Cycle slash command completion |
+| `Esc` | Go back one level or dismiss overlay |
+| `Ctrl+Q` | Quit winTerface |
+| `Up` / `Down` | Navigate lists |
+| `Enter` | Select or confirm |
 
-Screen-specific keys are shown in the hint bar at the bottom of each screen.
+### Per screen
+
+| Screen | Key | Action |
+|--------|-----|--------|
+| Updates | `Space` | Toggle selection on a single update |
+| Updates | `A` | Select all updates |
+| Updates | `U` | Update selected tools |
+| Updates | `Ctrl+R` | Run full update (all tools) |
+| Updates | `F5` | Check for new updates |
+| Tools | `A` | Open Add Tool wizard |
+| Tools | `I` | Install selected tool |
+| Tools | `U` | Update selected tool |
+| Tools | `X` | Remove selected tool |
+| Tools | `O` | Open install location in Explorer |
+| Tools | `F5` | Rescan tool inventory |
+| Profile | `R` | Redeploy profile |
+| Profile | `D` | View drift diff |
+| Profile | `C` | Compare profiles in VS Code |
+| Profile | `O` | Open profile in VS Code |
+| Profile | `F5` | Refresh health checks |
+| Config | `E` | Edit current section |
+| Config | `S` | Save settings |
+| Config | `V` | Verify winSetup path |
+| Config | `C` | Clear update cache |
+| Config | `R` | Force update check |
+| Config | `T` | Open Tools screen |
+| Add Tool | `Tab` | Next search result source |
+| Add Tool | `Shift+Tab` | Previous search result source |
+| Add Tool | `C` | Confirm changes (confirmation step) |
+| Add Tool | `Esc` | Go back one wizard step |
+
+Full reference: [KEYBINDINGS.md](KEYBINDINGS.md)
 
 ## Slash commands
 
-Type `/` to open the command bar. Tab cycles through completions.
+Type `/` to open the command bar. `Tab` cycles through completions.
 
 | Command | Action |
-|---|---|
-| `/tools` | Open Tools screen |
-| `/add-tool` | Launch the Add Tool wizard |
-| `/update` | Open Updates screen |
+|---------|--------|
+| `/tools` | Open the Tools screen |
+| `/add-tool` | Open the Add Tool wizard |
+| `/update` | Open the Updates screen |
 | `/check-for-updates` | Force an update check |
-| `/profile` | Open Profile screen |
-| `/config` | Open Config screen |
-| `/about` | Version and environment info |
-| `/help` | Show all keybindings |
-| `/quit` | Exit |
+| `/profile` | Open the Profile screen |
+| `/config` | Open the Config screen |
+| `/about` | Show version and environment info |
+| `/help` | Show all key bindings and commands |
+| `/quit` | Exit winTerface |
 
 ## Project structure
 
 ```
 winTerface/
-  winTerface.ps1              Entry point
-  Install-WinTerface.ps1      Installer
+  winTerface.ps1              Entry point: dependency check, first-run wizard, module loading
+  Install-WinTerface.ps1      Installer: PS7 check, ConsoleGuiTools, config dir, env var, alias
+
   src/
-    App.ps1                   Main loop, layout, timer polling
-    Config.ps1                Config file read/write/validation
+    App.ps1                   Terminal.Gui bootstrap, layout, help overlay, background poll timer
+    Config.ps1                Config file read/write/validation (~/.winTerface/config.json)
     Commands.ps1              Slash command registry, fuzzy matching, tab completion
-    Navigation.ps1            Screen switching, focus, autocomplete overlay
-    Helpers/                  Color schemes, elevation check
-    Services/                 winSetup interface, package managers, update cache, tool writer
-    Screens/                  Home, Updates, Tools, AddTool, Profile, Config, About
+    Navigation.ps1            Screen switching, global key handler, command bar, autocomplete
+
+    Helpers/
+      Elevation.ps1           Admin/elevation check
+      UI.ps1                  Colour schemes, status labels, backup pruning
+
+    Services/
+      WinSetup.ps1            winSetup interface: path validation, profile health, drift, updates
+      PackageManager.ps1      Chocolatey, winget, pipx, PyPI query and search functions
+      UpdateCache.ps1         Background update checking, cache file management
+      ToolWriter.ps1          Code generation for new tools, atomic file writes
+
+    Screens/
+      Home.ps1                Dashboard with status panel and main menu
+      Updates.ps1             Update management with per-tool and full updates
+      Tools.ps1               Tool inventory with install, update, remove actions
+      AddTool.ps1             Multi-step wizard: search or guided entry
+      Profile.ps1             Health checks, drift detection, redeploy
+      Config.ps1              Settings editor, path management, cache viewer
+      About.ps1               Version and environment info
+
+  tests/
+    ToolWriter.Tests.ps1      Pester tests for code generation
+
+  docs/
+    how-to-add-a-tool.md      Guide to registering tools via the wizard
+    how-to-manage-profile.md  Guide to profile health and redeployment
 ```
+
+## Documentation
+
+- [Key bindings reference](KEYBINDINGS.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
+- [How to add a tool](docs/how-to-add-a-tool.md)
+- [How to manage your profile](docs/how-to-manage-profile.md)
+- [Contributing](CONTRIBUTING.md)
