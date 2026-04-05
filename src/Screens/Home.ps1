@@ -43,8 +43,6 @@ function Get-RandomQuote {
             # Strip control characters; allow printable ASCII plus common
             # Unicode punctuation (em dash, en dash, curly quotes).
             $quote = $quote -replace '[^\x20-\x7E\u00C0-\u00FF\u2013\u2014\u201C\u201D\u2018\u2019]', ''
-            # Truncate to fit narrow terminals -- Terminal.Gui Labels don't wrap
-            if ($quote.Length -gt 100) { $quote = $quote.Substring(0, 97) + '...' }
 
             return $quote
         }
@@ -314,17 +312,22 @@ function Add-HomeFooter {
     )
 
     # --- Inspirational quote (random on each load) ---
-    # Truncate to terminal width minus margins. Terminal.Gui v1 Labels don't
-    # wrap or clip reliably on narrow terminals.
+    # Uses a read-only wrapping TextView so long quotes display in full
+    # instead of being truncated. Height of 3 rows fits most quotes at
+    # typical terminal widths (80-120 columns).
     $quote = Get-RandomQuote
     if ($quote) {
-        $maxW = [Math]::Max(40, [Console]::WindowWidth - 8)
-        if ($quote.Length -gt $maxW) { $quote = $quote.Substring(0, $maxW - 3) + '...' }
-        $quoteLabel = [Terminal.Gui.Label]::new("  $quote")
-        $quoteLabel.X = 0
-        $quoteLabel.Y = [Terminal.Gui.Pos]::AnchorEnd(4)
-        $quoteLabel.Width = [Terminal.Gui.Dim]::Fill()
-        $Container.Add($quoteLabel)
+        $quoteView = [Terminal.Gui.TextView]::new()
+        $quoteView.X = 0
+        $quoteView.Y = [Terminal.Gui.Pos]::AnchorEnd(5)
+        $quoteView.Width = [Terminal.Gui.Dim]::Fill()
+        $quoteView.Height = 3
+        $quoteView.ReadOnly = $true
+        $quoteView.WordWrap = $true
+        $quoteView.CanFocus = $false
+        $quoteView.Text = "  $quote"
+        if ($script:Colors.Base) { $quoteView.ColorScheme = $script:Colors.Base }
+        $Container.Add($quoteView)
     }
 
     # --- Quit hint ---
