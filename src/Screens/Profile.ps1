@@ -262,7 +262,7 @@ function Invoke-ProfileRedeployAction {
 
     $dialog = [Terminal.Gui.Dialog]::new(
         "Redeploy profile?",
-        54, 11,
+        62, 11,
         [Terminal.Gui.Button[]]@($confirmBtn, $cancelBtn)
     )
 
