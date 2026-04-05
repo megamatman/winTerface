@@ -157,12 +157,12 @@ function Build-WizardChoosePath {
 
     # Dynamic description label -- updates when the highlighted option changes.
     # Stored at $script: scope so the SelectedItemChanged handler can update it.
-    # Description uses Base colour (white text, no highlight) to appear
-    # subordinate to the Menu-coloured option list which highlights on focus.
+    # Dim colour (DarkGray on Black) makes the description visually
+    # subordinate to the white Menu-coloured option list text.
     $script:_ChoosePathDesc = [Terminal.Gui.Label]::new("")
     $script:_ChoosePathDesc.X = 4; $script:_ChoosePathDesc.Y = 7
     $script:_ChoosePathDesc.Width = [Terminal.Gui.Dim]::Fill(4); $script:_ChoosePathDesc.Height = 2
-    if ($script:Colors.Base) { $script:_ChoosePathDesc.ColorScheme = $script:Colors.Base }
+    if ($script:Colors.Dim) { $script:_ChoosePathDesc.ColorScheme = $script:Colors.Dim }
     $Container.Add($script:_ChoosePathDesc)
 
     $script:_ChoosePathDescriptions = @(

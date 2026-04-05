@@ -52,6 +52,11 @@ function Initialize-ColorSchemes {
     $script:Colors.Menu.HotNormal = $driver.MakeAttribute([Terminal.Gui.Color]::Cyan,  [Terminal.Gui.Color]::Black)
     $script:Colors.Menu.HotFocus  = $driver.MakeAttribute([Terminal.Gui.Color]::Black, [Terminal.Gui.Color]::BrightCyan)
 
+    $script:Colors.Dim = [Terminal.Gui.ColorScheme]::new()
+    $attr = $driver.MakeAttribute([Terminal.Gui.Color]::DarkGray, [Terminal.Gui.Color]::Black)
+    $script:Colors.Dim.Normal = $attr; $script:Colors.Dim.Focus = $attr
+    $script:Colors.Dim.HotNormal = $attr; $script:Colors.Dim.HotFocus = $attr
+
     $script:Colors.Autocomplete = [Terminal.Gui.ColorScheme]::new()
     $script:Colors.Autocomplete.Normal    = $driver.MakeAttribute([Terminal.Gui.Color]::White, [Terminal.Gui.Color]::DarkGray)
     $script:Colors.Autocomplete.Focus     = $driver.MakeAttribute([Terminal.Gui.Color]::Black, [Terminal.Gui.Color]::Cyan)
