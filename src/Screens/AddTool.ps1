@@ -157,9 +157,12 @@ function Build-WizardChoosePath {
 
     # Dynamic description label -- updates when the highlighted option changes.
     # Stored at $script: scope so the SelectedItemChanged handler can update it.
+    # Description uses Base colour (white text, no highlight) to appear
+    # subordinate to the Menu-coloured option list which highlights on focus.
     $script:_ChoosePathDesc = [Terminal.Gui.Label]::new("")
     $script:_ChoosePathDesc.X = 4; $script:_ChoosePathDesc.Y = 7
     $script:_ChoosePathDesc.Width = [Terminal.Gui.Dim]::Fill(4); $script:_ChoosePathDesc.Height = 2
+    if ($script:Colors.Base) { $script:_ChoosePathDesc.ColorScheme = $script:Colors.Base }
     $Container.Add($script:_ChoosePathDesc)
 
     $script:_ChoosePathDescriptions = @(
@@ -230,9 +233,14 @@ function Build-WizardSearchInput {
     # $tf is function-local and resolves to $null in .NET event handlers.
     # Stored as $script:_SearchInput before registering the KeyPress handler.
     # See CONTRIBUTING.md -- dialog input fields must use $script: scope.
+    $searchFrame = [Terminal.Gui.FrameView]::new("Search")
+    $searchFrame.X = 2; $searchFrame.Y = 8
+    $searchFrame.Width = [Terminal.Gui.Dim]::Fill(2); $searchFrame.Height = 3
+    if ($script:Colors.Base) { $searchFrame.ColorScheme = $script:Colors.Base }
+
     $script:_SearchInput = [Terminal.Gui.TextField]::new("")
-    $script:_SearchInput.X = 4; $script:_SearchInput.Y = 8
-    $script:_SearchInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_SearchInput.Height = 1
+    $script:_SearchInput.X = 0; $script:_SearchInput.Y = 0
+    $script:_SearchInput.Width = [Terminal.Gui.Dim]::Fill(); $script:_SearchInput.Height = 1
     if ($script:Colors.CommandBar) { $script:_SearchInput.ColorScheme = $script:Colors.CommandBar }
 
     $script:_SearchInput.add_KeyPress({
@@ -250,9 +258,10 @@ function Build-WizardSearchInput {
         }
     })
 
-    Add-WizardHint -Container $Container -Y 10 -Text "Enter to search, Escape to go back"
+    $searchFrame.Add($script:_SearchInput)
+    Add-WizardHint -Container $Container -Y 11 -Text "Enter to search, Escape to go back"
 
-    $Container.Add($script:_SearchInput)
+    $Container.Add($searchFrame)
     $script:Layout.MenuList = $null
     $script:_SearchInput.SetFocus()
 }
