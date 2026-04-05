@@ -59,6 +59,10 @@ must be followed to avoid crashes:
   | `$script:_UpdateColWidths` | Updates | Column widths calculated from dataset for table formatting |
   | `$script:_ChoosePathDesc` | AddTool | Dynamic description label on choose-path screen |
   | `$script:_ChoosePathDescriptions` | AddTool | Description strings array for choose-path options |
+  | `$script:_SearchLists` | AddTool | Ordered array of search result ListViews (choco, winget, pypi) |
+  | `$script:_SearchResults` | AddTool | Ordered array of search result data arrays |
+  | `$script:_SearchManagers` | AddTool | Ordered array of manager strings for search sections |
+  | `$script:_ResultDescView` | AddTool | Description panel TextView on search results screen |
 
   When adding new dialogs or handlers, follow this pattern and add new
   variables to this table.

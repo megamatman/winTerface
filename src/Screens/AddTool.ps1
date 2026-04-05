@@ -15,10 +15,12 @@ $script:WizardData = @{
 }
 
 # Background search jobs
-$script:ChocoSearchJob    = $null
-$script:WingetSearchJob   = $null
+$script:ChocoSearchJob      = $null
+$script:WingetSearchJob     = $null
+$script:PyPISearchJob       = $null
 $script:ChocoSearchResults  = @()
 $script:WingetSearchResults = @()
+$script:PyPISearchResults   = @()
 
 # Guided step definitions
 # AllowedPattern: field-specific character allowlists to prevent code injection.
@@ -105,6 +107,7 @@ function Reset-WizardState {
     Stop-WizardSearchJobs
     $script:ChocoSearchResults  = @()
     $script:WingetSearchResults = @()
+    $script:PyPISearchResults   = @()
 }
 
 function Stop-WizardSearchJobs {
@@ -112,7 +115,7 @@ function Stop-WizardSearchJobs {
     .SYNOPSIS
         Cancels any running package search jobs.
     #>
-    foreach ($jobVar in @('ChocoSearchJob', 'WingetSearchJob')) {
+    foreach ($jobVar in @('ChocoSearchJob', 'WingetSearchJob', 'PyPISearchJob')) {
         $job = Get-Variable -Name $jobVar -Scope Script -ValueOnly -ErrorAction SilentlyContinue
         if ($job) {
             try { Stop-Job $job -ErrorAction SilentlyContinue } catch {}
@@ -210,15 +213,25 @@ function Build-WizardSearchInput {
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Search'
 
-    $context = [Terminal.Gui.Label]::new("  Enter a search term to find the tool in package managers.")
+    $context = [Terminal.Gui.Label]::new("  Enter a search term to find the tool across package managers.")
     $context.X = 0; $context.Y = 2; $context.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($context)
+
+    $src1 = [Terminal.Gui.Label]::new("    Chocolatey   Windows system tools and CLI utilities")
+    $src1.X = 0; $src1.Y = 4; $src1.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($src1)
+    $src2 = [Terminal.Gui.Label]::new("    Winget       Windows apps and developer tools")
+    $src2.X = 0; $src2.Y = 5; $src2.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($src2)
+    $src3 = [Terminal.Gui.Label]::new("    PyPI         Python CLI tools via pipx (exact package name)")
+    $src3.X = 0; $src3.Y = 6; $src3.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($src3)
 
     # $tf is function-local and resolves to $null in .NET event handlers.
     # Stored as $script:_SearchInput before registering the KeyPress handler.
     # See CONTRIBUTING.md -- dialog input fields must use $script: scope.
     $script:_SearchInput = [Terminal.Gui.TextField]::new("")
-    $script:_SearchInput.X = 4; $script:_SearchInput.Y = 4
+    $script:_SearchInput.X = 4; $script:_SearchInput.Y = 8
     $script:_SearchInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_SearchInput.Height = 1
     if ($script:Colors.CommandBar) { $script:_SearchInput.ColorScheme = $script:Colors.CommandBar }
 
@@ -237,7 +250,7 @@ function Build-WizardSearchInput {
         }
     })
 
-    Add-WizardHint -Container $Container -Y 6 -Text "Enter to search, Escape to go back"
+    Add-WizardHint -Container $Container -Y 10 -Text "Enter to search, Escape to go back"
 
     $Container.Add($script:_SearchInput)
     $script:Layout.MenuList = $null
@@ -247,7 +260,7 @@ function Build-WizardSearchInput {
 function Start-WizardSearch {
     <#
     .SYNOPSIS
-        Launches concurrent choco and winget search jobs.
+        Launches concurrent choco, winget, and PyPI search jobs.
     .PARAMETER SearchTerm
         The text to search for.
     #>
@@ -258,6 +271,9 @@ function Start-WizardSearch {
     $script:ChocoSearchJob = Start-Job -ScriptBlock {
         param($sp, $term)
         try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             . $sp
             Search-ChocolateyPackage -Name $term
         } catch {
@@ -268,8 +284,21 @@ function Start-WizardSearch {
     $script:WingetSearchJob = Start-Job -ScriptBlock {
         param($sp, $term)
         try {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                        ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             . $sp
             Search-WingetPackage -Name $term
+        } catch {
+            Write-Error "Job failed: $_"
+        }
+    } -ArgumentList $pkgMgrScript, $SearchTerm
+
+    $script:PyPISearchJob = Start-Job -ScriptBlock {
+        param($sp, $term)
+        try {
+            . $sp
+            Search-PyPI -Term $term
         } catch {
             Write-Error "Job failed: $_"
         }
@@ -284,8 +313,8 @@ function Build-WizardSearching {
     .SYNOPSIS
         Builds the in-progress screen shown while search jobs are running.
     .DESCRIPTION
-        Displays status labels for the choco and winget search jobs.
-        The 500ms timer advances to SearchResults when both complete.
+        Displays status labels for the choco, winget, and PyPI search jobs.
+        The 500ms timer advances to SearchResults when all three complete.
     #>
     param($Container)
 
@@ -298,6 +327,7 @@ function Build-WizardSearching {
 
     $chocoState  = if ($script:ChocoSearchJob)  { 'searching...' } else { 'done' }
     $wingetState = if ($script:WingetSearchJob) { 'searching...' } else { 'done' }
+    $pypiState   = if ($script:PyPISearchJob)   { 'searching...' } else { 'done' }
 
     $c1 = [Terminal.Gui.Label]::new("  Chocolatey   $chocoState")
     $c1.X = 0; $c1.Y = 4; $c1.Width = [Terminal.Gui.Dim]::Fill()
@@ -307,7 +337,11 @@ function Build-WizardSearching {
     $c2.X = 0; $c2.Y = 5; $c2.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($c2)
 
-    Add-WizardHint -Container $Container -Y 7 -Text "Escape to cancel"
+    $c3 = [Terminal.Gui.Label]::new("  PyPI         $pypiState")
+    $c3.X = 0; $c3.Y = 6; $c3.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($c3)
+
+    Add-WizardHint -Container $Container -Y 8 -Text "Escape to cancel"
 }
 
 function Update-SearchJobStatus {
@@ -315,9 +349,9 @@ function Update-SearchJobStatus {
     .SYNOPSIS
         Polls the search background jobs.  Called by the 500 ms timer.
     #>
-    if (-not $script:ChocoSearchJob -and -not $script:WingetSearchJob) { return }
+    if (-not $script:ChocoSearchJob -and -not $script:WingetSearchJob -and -not $script:PyPISearchJob) { return }
 
-    $bothDone = $true
+    $allDone = $true
 
     if ($script:ChocoSearchJob) {
         if ($script:ChocoSearchJob.State -ne 'Running') {
@@ -325,7 +359,7 @@ function Update-SearchJobStatus {
             catch { $script:ChocoSearchResults = @() }
             try { Remove-Job $script:ChocoSearchJob -Force } catch {}
             $script:ChocoSearchJob = $null
-        } else { $bothDone = $false }
+        } else { $allDone = $false }
     }
 
     if ($script:WingetSearchJob) {
@@ -334,24 +368,218 @@ function Update-SearchJobStatus {
             catch { $script:WingetSearchResults = @() }
             try { Remove-Job $script:WingetSearchJob -Force } catch {}
             $script:WingetSearchJob = $null
-        } else { $bothDone = $false }
+        } else { $allDone = $false }
     }
 
-    if ($bothDone -and $script:WizardStep -eq 'Searching') {
+    if ($script:PyPISearchJob) {
+        if ($script:PyPISearchJob.State -ne 'Running') {
+            try { $script:PyPISearchResults = @(Receive-Job $script:PyPISearchJob -ErrorAction SilentlyContinue) }
+            catch { $script:PyPISearchResults = @() }
+            try { Remove-Job $script:PyPISearchJob -Force } catch {}
+            $script:PyPISearchJob = $null
+        } else { $allDone = $false }
+    }
+
+    if ($allDone -and $script:WizardStep -eq 'Searching') {
         $script:WizardStep = 'SearchResults'
         Switch-Screen -ScreenName 'AddTool'
     }
 }
 
+# ---------------------------------------------------------------------------
+# Search results helpers
+# ---------------------------------------------------------------------------
+
+# $script: references for search result section ListViews (closure safety)
+$script:_SearchLists     = @()   # ordered array: choco, winget, pypi ListViews
+$script:_SearchResults   = @()   # ordered array: choco, winget, pypi result arrays
+$script:_SearchManagers  = @()   # ordered array: 'choco', 'winget', 'pipx'
+$script:_ResultDescView  = $null # description panel TextView
+
+function Add-SearchResultSection {
+    <#
+    .SYNOPSIS
+        Builds one search result section (FrameView + ListView) and adds it to the container.
+    .DESCRIPTION
+        Creates a framed ListView for a single package manager source. Wires
+        OpenSelectedItem to populate WizardData and advance the wizard. Wires
+        SelectedItemChanged to update the description panel. Returns the ListView.
+    .PARAMETER Container
+        Parent view.
+    .PARAMETER Title
+        FrameView title (e.g. "Chocolatey (5)").
+    .PARAMETER Results
+        Array of result hashtables from the search.
+    .PARAMETER Manager
+        Package manager identifier: 'choco', 'winget', or 'pipx'.
+    .PARAMETER Y
+        Y position for the FrameView.
+    .PARAMETER SectionHeight
+        Total height of the FrameView (ListView rows + 2 for borders).
+    .PARAMETER ListIndex
+        Index of this list in $script:_SearchLists (for Tab navigation).
+    #>
+    param($Container, [string]$Title, [array]$Results, [string]$Manager, [int]$Y, [int]$SectionHeight, [int]$ListIndex)
+
+    $frame = [Terminal.Gui.FrameView]::new($Title)
+    $frame.X = 0; $frame.Y = $Y
+    $frame.Width = [Terminal.Gui.Dim]::Fill(); $frame.Height = $SectionHeight
+    if ($script:Colors.Base) { $frame.ColorScheme = $script:Colors.Base }
+
+    $listStrings = [System.Collections.Generic.List[string]]::new()
+    foreach ($r in $Results) {
+        $name = "$($r.Name)".PadRight(30)
+        $ver  = "$($r.Version)"
+        $listStrings.Add(" $name $ver")
+    }
+    if ($listStrings.Count -eq 0) { $listStrings.Add(" (no results)") }
+
+    $listView = [Terminal.Gui.ListView]::new($listStrings)
+    $listView.X = 0; $listView.Y = 0
+    $listView.Width = [Terminal.Gui.Dim]::Fill(); $listView.Height = [Terminal.Gui.Dim]::Fill()
+    $listView.AllowsMarking = $false
+    if ($script:Colors.Menu) { $listView.ColorScheme = $script:Colors.Menu }
+
+    # Helper: find this list's index at event time (avoids closure over $ListIndex)
+    # Uses reference equality against the $script:_SearchLists array.
+
+    # Selection handler -- populate WizardData and advance
+    $listView.add_OpenSelectedItem({
+        param($e)
+        # Determine which list fired by finding the focused list in the array
+        $li = -1
+        for ($i = 0; $i -lt $script:_SearchLists.Count; $i++) {
+            if ($script:_SearchLists[$i] -eq $e.Source -or
+                $script:_SearchLists[$i].HasFocus) { $li = $i; break }
+        }
+        if ($li -lt 0) { return }
+        $mgr     = $script:_SearchManagers[$li]
+        $results = $script:_SearchResults[$li]
+        if ($results.Count -gt 0 -and $e.Item -lt $results.Count) {
+            $sel = $results[$e.Item]
+            $script:WizardData.DisplayName    = $sel.Name
+            $script:WizardData.PackageManager = $mgr
+            $script:WizardData.PackageId      = if ($sel.PackageId) { $sel.PackageId } else { $sel.Id }
+            $script:WizardData.VerifyCommand  = ($sel.Name.ToLower() -replace '\s.*', '')
+            $script:WizardStep = 'ReviewFields'
+            Switch-Screen -ScreenName 'AddTool'
+        }
+    })
+
+    # Highlight change -- update description panel
+    $listView.add_SelectedItemChanged({
+        param($e)
+        if (-not $script:_ResultDescView) { return }
+        $li = -1
+        for ($i = 0; $i -lt $script:_SearchLists.Count; $i++) {
+            if ($script:_SearchLists[$i].HasFocus) { $li = $i; break }
+        }
+        if ($li -lt 0) { return }
+        $results = $script:_SearchResults[$li]
+        $lv = $script:_SearchLists[$li]
+        if (-not $lv) { return }
+        $idx = $lv.SelectedItem
+        if ($results.Count -gt 0 -and $idx -ge 0 -and $idx -lt $results.Count) {
+            $desc = $results[$idx].Description
+            $script:_ResultDescView.Text = if ($desc) { $desc } else { 'No description available.' }
+        } else {
+            $script:_ResultDescView.Text = ''
+        }
+        try { $script:_ResultDescView.SetNeedsDisplay() } catch {}
+    })
+
+    # Tab / Shift+Tab navigation between sections; Escape goes back
+    $listView.add_KeyPress({
+        param($e)
+        $key = $e.KeyEvent.Key
+        if ($key -eq [Terminal.Gui.Key]::Tab) {
+            $li = -1
+            for ($i = 0; $i -lt $script:_SearchLists.Count; $i++) {
+                if ($script:_SearchLists[$i].HasFocus) { $li = $i; break }
+            }
+            if ($li -ge 0) {
+                $nextIdx = ($li + 1) % $script:_SearchLists.Count
+                $script:_SearchLists[$nextIdx].SetFocus()
+            }
+            $e.Handled = $true; return
+        }
+        if ($key -eq [Terminal.Gui.Key]::BackTab) {
+            $li = -1
+            for ($i = 0; $i -lt $script:_SearchLists.Count; $i++) {
+                if ($script:_SearchLists[$i].HasFocus) { $li = $i; break }
+            }
+            if ($li -ge 0) {
+                $prevIdx = ($li - 1 + $script:_SearchLists.Count) % $script:_SearchLists.Count
+                $script:_SearchLists[$prevIdx].SetFocus()
+            }
+            $e.Handled = $true; return
+        }
+        if ($key -eq [Terminal.Gui.Key]::Esc) {
+            Step-WizardBack
+            $e.Handled = $true
+        }
+    })
+
+    $frame.Add($listView)
+    $Container.Add($frame)
+    return $listView
+}
+
+function Add-SearchResultDescriptionPanel {
+    <#
+    .SYNOPSIS
+        Adds the description panel below the search result sections.
+    .DESCRIPTION
+        Creates a framed read-only TextView for showing the description of
+        the currently highlighted search result. Stores a reference in
+        $script:_ResultDescView for handlers to update.
+    .PARAMETER Container
+        Parent view.
+    .PARAMETER Y
+        Y position for the FrameView.
+    .PARAMETER Height
+        Total height of the FrameView.
+    #>
+    param($Container, [int]$Y, [int]$Height)
+
+    $frame = [Terminal.Gui.FrameView]::new("Description")
+    $frame.X = 0; $frame.Y = $Y
+    $frame.Width = [Terminal.Gui.Dim]::Fill(); $frame.Height = $Height
+    if ($script:Colors.Base) { $frame.ColorScheme = $script:Colors.Base }
+
+    $tv = [Terminal.Gui.TextView]::new()
+    $tv.X = 0; $tv.Y = 0
+    $tv.Width = [Terminal.Gui.Dim]::Fill(); $tv.Height = [Terminal.Gui.Dim]::Fill()
+    $tv.ReadOnly = $true
+    $tv.WordWrap = $true
+    if ($script:Colors.Base) { $tv.ColorScheme = $script:Colors.Base }
+
+    $frame.Add($tv)
+    $Container.Add($frame)
+    $script:_ResultDescView = $tv
+}
+
 function Build-WizardSearchResults {
     <#
     .SYNOPSIS
-        Builds the split-pane search results view with choco and winget columns.
+        Builds the three-section search results view with description panel.
     .DESCRIPTION
-        Displays choco results on the left, winget on the right. Selecting a
-        result populates WizardData and advances to ReviewFields.
+        Displays choco, winget, and PyPI results in vertically stacked
+        sections. Tab moves focus between sections. Enter selects a result
+        and advances to ReviewFields. A description panel shows detail for
+        the highlighted item.
     #>
     param($Container)
+
+    # Section layout constants
+    $listRows      = 4     # visible rows per ListView
+    $sectionHeight = $listRows + 2  # +2 for FrameView borders
+    $descHeight    = 5     # description panel FrameView height
+    $section1Y     = 2     # below header (Y=0) and context (Y=1)
+    $section2Y     = $section1Y + $sectionHeight
+    $section3Y     = $section2Y + $sectionHeight
+    $descY         = $section3Y + $sectionHeight
+    $hintY         = $descY + $descHeight
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Search Results'
 
@@ -359,77 +587,45 @@ function Build-WizardSearchResults {
     $context.X = 0; $context.Y = 1; $context.Width = [Terminal.Gui.Dim]::Fill()
     $Container.Add($context)
 
-    # --- Chocolatey pane (left) ---
-    $chocoFrame = [Terminal.Gui.FrameView]::new("Chocolatey ($($script:ChocoSearchResults.Count))")
-    $chocoFrame.X = 0; $chocoFrame.Y = 2
-    $chocoFrame.Width = [Terminal.Gui.Dim]::Percent(50)
-    $chocoFrame.Height = [Terminal.Gui.Dim]::Fill(3)
+    # Prepare result arrays and managers for $script: scope
+    $script:_SearchResults  = @($script:ChocoSearchResults, $script:WingetSearchResults, $script:PyPISearchResults)
+    $script:_SearchManagers = @('choco', 'winget', 'pipx')
 
-    $chocoStrings = [System.Collections.Generic.List[string]]::new()
-    foreach ($r in $script:ChocoSearchResults) {
-        $chocoStrings.Add(" $($r.Name)  $($r.Version)")
-    }
-    if ($chocoStrings.Count -eq 0) { $chocoStrings.Add(" (no results)") }
+    # Description panel (must exist before sections wire SelectedItemChanged)
+    Add-SearchResultDescriptionPanel -Container $Container -Y $descY -Height $descHeight
 
-    $chocoList = [Terminal.Gui.ListView]::new($chocoStrings)
-    $chocoList.X = 0; $chocoList.Y = 0
-    $chocoList.Width = [Terminal.Gui.Dim]::Fill(); $chocoList.Height = [Terminal.Gui.Dim]::Fill()
-    $chocoList.AllowsMarking = $false
-    if ($script:Colors.Menu) { $chocoList.ColorScheme = $script:Colors.Menu }
+    # Build sections
+    $chocoList = Add-SearchResultSection -Container $Container `
+        -Title "Chocolatey ($($script:ChocoSearchResults.Count))" `
+        -Results $script:ChocoSearchResults -Manager 'choco' `
+        -Y $section1Y -SectionHeight $sectionHeight -ListIndex 0
 
-    $chocoList.add_OpenSelectedItem({
-        param($e)
-        if ($script:ChocoSearchResults.Count -gt 0 -and $e.Item -lt $script:ChocoSearchResults.Count) {
-            $sel = $script:ChocoSearchResults[$e.Item]
-            $script:WizardData.DisplayName    = $sel.Name
-            $script:WizardData.PackageManager = 'choco'
-            $script:WizardData.PackageId      = $sel.PackageId
-            $script:WizardData.VerifyCommand  = $sel.Name.ToLower()
-            $script:WizardStep = 'ReviewFields'
-            Switch-Screen -ScreenName 'AddTool'
-        }
-    })
-    $chocoFrame.Add($chocoList)
-    $Container.Add($chocoFrame)
+    $wingetList = Add-SearchResultSection -Container $Container `
+        -Title "Winget ($($script:WingetSearchResults.Count))" `
+        -Results $script:WingetSearchResults -Manager 'winget' `
+        -Y $section2Y -SectionHeight $sectionHeight -ListIndex 1
 
-    # --- Winget pane (right) ---
-    $wingetFrame = [Terminal.Gui.FrameView]::new("Winget ($($script:WingetSearchResults.Count))")
-    $wingetFrame.X = [Terminal.Gui.Pos]::Percent(50); $wingetFrame.Y = 2
-    $wingetFrame.Width = [Terminal.Gui.Dim]::Fill()
-    $wingetFrame.Height = [Terminal.Gui.Dim]::Fill(3)
+    $pypiList = Add-SearchResultSection -Container $Container `
+        -Title "PyPI - exact name ($($script:PyPISearchResults.Count))" `
+        -Results $script:PyPISearchResults -Manager 'pipx' `
+        -Y $section3Y -SectionHeight $sectionHeight -ListIndex 2
 
-    $wingetStrings = [System.Collections.Generic.List[string]]::new()
-    foreach ($r in $script:WingetSearchResults) {
-        $wingetStrings.Add(" $($r.Name)  $($r.Version)")
-    }
-    if ($wingetStrings.Count -eq 0) { $wingetStrings.Add(" (no results)") }
+    # Store list references for Tab navigation and closure access
+    $script:_SearchLists = @($chocoList, $wingetList, $pypiList)
 
-    $wingetList = [Terminal.Gui.ListView]::new($wingetStrings)
-    $wingetList.X = 0; $wingetList.Y = 0
-    $wingetList.Width = [Terminal.Gui.Dim]::Fill(); $wingetList.Height = [Terminal.Gui.Dim]::Fill()
-    $wingetList.AllowsMarking = $false
-    if ($script:Colors.Menu) { $wingetList.ColorScheme = $script:Colors.Menu }
+    Add-WizardHint -Container $Container -Y $hintY `
+        -Text "Tab: next source  Enter: select  Escape: back"
 
-    $wingetList.add_OpenSelectedItem({
-        param($e)
-        if ($script:WingetSearchResults.Count -gt 0 -and $e.Item -lt $script:WingetSearchResults.Count) {
-            $sel = $script:WingetSearchResults[$e.Item]
-            $script:WizardData.DisplayName    = $sel.Name
-            $script:WizardData.PackageManager = 'winget'
-            $script:WizardData.PackageId      = $sel.PackageId
-            $script:WizardData.VerifyCommand  = $sel.Name.ToLower() -replace '\s.*', ''
-            $script:WizardStep = 'ReviewFields'
-            Switch-Screen -ScreenName 'AddTool'
-        }
-    })
-    $wingetFrame.Add($wingetList)
-    $Container.Add($wingetFrame)
-
-    Add-WizardHint -Container $Container -Y ([Terminal.Gui.Pos]::AnchorEnd(2)) `
-        -Text "Tab to switch panes, Enter to select, Escape to go back"
-
+    # Set initial focus and description
     $script:Layout.MenuList = $chocoList
     $chocoList.SetFocus()
+
+    # Show description for first choco result if available
+    if ($script:ChocoSearchResults.Count -gt 0 -and $script:ChocoSearchResults[0].Description) {
+        $script:_ResultDescView.Text = $script:ChocoSearchResults[0].Description
+    } elseif ($script:ChocoSearchResults.Count -gt 0) {
+        $script:_ResultDescView.Text = 'No description available.'
+    }
 }
 
 # ---------------------------------------------------------------------------

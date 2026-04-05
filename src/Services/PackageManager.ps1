@@ -344,3 +344,51 @@ function Search-WingetPackage {
         return @()
     }
 }
+
+# ---------------------------------------------------------------------------
+# PyPI
+# ---------------------------------------------------------------------------
+
+function Search-PyPI {
+    <#
+    .SYNOPSIS
+        Looks up a package on PyPI by exact name.
+    .DESCRIPTION
+        Queries the PyPI JSON API for the given package name. Returns a
+        single-element array on success or an empty array if the package
+        does not exist. This is an exact name lookup, not a fuzzy search.
+    .PARAMETER Term
+        The exact PyPI package name to look up.
+    .OUTPUTS
+        [array] Each element: @{ Name; Id; Version; Description; Source = 'pypi' }
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable[]])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Term
+    )
+
+    try {
+        $response = Invoke-RestMethod "https://pypi.org/pypi/$Term/json" -TimeoutSec 10 -ErrorAction Stop
+        $info = $response.info
+        if (-not $info) { return @() }
+
+        return @(@{
+            Name        = $info.name
+            Id          = $info.name
+            Version     = $info.version
+            Description = $info.summary
+            Source      = 'pypi'
+        })
+    }
+    catch {
+        # 404 = package not found (expected), anything else is a real failure
+        if ($_.Exception.Response.StatusCode.value__ -eq 404) {
+            return @()
+        }
+        Write-Warning "PyPI search failed: $_"
+        return @()
+    }
+}
