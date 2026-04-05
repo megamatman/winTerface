@@ -1,6 +1,9 @@
 # winTerface user config
 **/.winTerface/
 
+# Claude Code context (local developer tooling)
+CLAUDE.md
+
 # PowerShell
 *.psm1.bak
 *.ps1.bak
