@@ -317,7 +317,7 @@ function Invoke-EditWinTerfaceSettings {
         -CurrentValue "$($config.updateCheckIntervalHours)"
     if ($null -ne $newInterval) {
         $intVal = $newInterval -as [int]
-        if ($intVal) { $config.updateCheckIntervalHours = $intVal }
+        if ($null -ne $intVal) { $config.updateCheckIntervalHours = $intVal }
     }
 
     # Save immediately after editing
@@ -433,21 +433,6 @@ function Invoke-ClearCache {
     }
 
     Update-ConfigDetail -Index 3
-}
-
-function Invoke-OpenToolLocation {
-    <#
-    .SYNOPSIS
-        Opens the install location of the first tool that has a known path.
-    #>
-    if (-not $script:ToolInventoryData) { return }
-
-    $withPath = @($script:ToolInventoryData | Where-Object { $_.Path })
-    if ($withPath.Count -eq 0) { return }
-
-    # Open the directory of the first tool for now
-    $toolPath = Split-Path $withPath[0].Path -Parent
-    try { & explorer.exe $toolPath 2>$null } catch {}
 }
 
 # ---------------------------------------------------------------------------

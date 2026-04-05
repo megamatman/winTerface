@@ -5,9 +5,12 @@
 winTerface uses Terminal.Gui via ConsoleGuiTools. The following rules
 must be followed to avoid crashes:
 
-- **Never call Write-Host inside a background job or timer callback.**
+- **Never call Write-Host inside a callback, event handler, or timer handler.**
   Write-Host corrupts Terminal.Gui's console driver. Use job return
   values or `$script:` variables to pass data back to the UI.
+  Write-Host inside `Start-Job` scriptblocks is acceptable because jobs
+  run in a separate process; their output is captured via `2>&1` and
+  streamed to the TUI through `Receive-Job`.
 
 - **Never call Switch-Screen from a key event handler.**
   This destroys the view that owns the event mid-dispatch. Trigger
@@ -52,6 +55,8 @@ must be followed to avoid crashes:
   | `$script:_ToolDetailView` | Tools | Detail panel TextView reference |
   | `$script:_RemoveChoice` | Tools | Selection from remove confirmation dialog |
   | `$script:_RemovingToolName` | Tools | Tool name being uninstalled (for cleanup) |
+  | `$script:_ElevWarningResult` | WinSetup | Return value from elevation warning dialog |
+  | `$script:_UpdateColWidths` | Updates | Column widths calculated from dataset for table formatting |
 
   When adding new dialogs or handlers, follow this pattern and add new
   variables to this table.

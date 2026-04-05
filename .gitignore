@@ -4,6 +4,9 @@
 # Claude Code context (local developer tooling)
 CLAUDE.md
 
+# Local-only notes (no-git markdown)
+ng-*.md
+
 # PowerShell
 *.psm1.bak
 *.ps1.bak

@@ -1,4 +1,4 @@
-# Home.ps1 - Dashboard home screen with status panel and main menu
+﻿# Home.ps1 - Dashboard home screen with status panel and main menu
 
 $script:HomeMenuItems = @(
     @{ Name = 'Tools';   Description = 'View and manage installed tools';  Screen = 'Tools' }

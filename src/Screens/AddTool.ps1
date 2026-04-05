@@ -29,7 +29,7 @@ $script:GuidedSteps = @(
     @{ Title = 'Package manager';            Desc = 'Which package manager installs this tool?';                                  Key = 'PackageManager'; Type = 'select'; Required = $true;  Next = 'GuidedPackageId'; Options = @('choco','winget','pipx','manual') }
     @{ Title = 'Package ID';                 Desc = 'Package name or ID used to install (e.g. ripgrep, junegunn.fzf)';           Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/]+$' }
     @{ Title = 'Verify command';             Desc = 'Command that confirms installation (e.g. rg, fzf, delta)';                  Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\.\_]+$' }
-    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'GuidedUpdate';    AllowedPattern = '^[a-zA-Z0-9\-\_]+$' }
+    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'GuidedUpdate';    AllowedPattern = '^[a-zA-Z0-9\-\_\s\$\=\.\(\)''\"\\:,\|]+$' }
     @{ Title = 'Update override (optional)'; Desc = 'Custom update command if not handled by standard update script';            Key = 'UpdateOverride'; Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/\s]+$' }
 )
 
@@ -643,8 +643,15 @@ function Save-NewToolRegistration {
         Copy-Item $wtWinSetup $backup -ErrorAction SilentlyContinue
         Remove-OldBackups -SourceFile $wtWinSetup -Keep 3
 
+        # Escape single quotes in all user-supplied values before embedding in
+        # generated code. Search-path values bypass AllowedPattern validation
+        # and rely on this escaping for safety.
+        $safeName    = $script:WizardData.DisplayName    -replace "'", "''"
+        $safeCommand = $script:WizardData.VerifyCommand  -replace "'", "''"
+        $safeManager = $script:WizardData.PackageManager -replace "'", "''"
+
         $wsContent = Get-Content $wtWinSetup
-        $newEntry = "    @{ Name = '$($script:WizardData.DisplayName)'; Command = '$($script:WizardData.VerifyCommand)'; Manager = '$($script:WizardData.PackageManager)'; Desc = '$($script:WizardData.DisplayName) tool.' }"
+        $newEntry = "    @{ Name = '$safeName'; Command = '$safeCommand'; Manager = '$safeManager'; Desc = '$safeName tool.' }"
         $inserted = $false
         $newLines = [System.Collections.Generic.List[string]]::new()
         foreach ($l in $wsContent) {
@@ -712,7 +719,14 @@ function Invoke-WizardConfirm {
                 $script:ToolActionJob = Start-Job -ScriptBlock {
                     param($scriptPath, $name)
                     try {
+                        # Refresh PATH -- Start-Job runs with -NoProfile so
+                        # choco/winget may not be on PATH.
+                        $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
+                                    ';' +
+                                    [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+                        Write-Host "[job] Running: & '$scriptPath' -InstallTool '$name'"
                         & $scriptPath -InstallTool $name 2>&1
+                        Write-Host "[job] Exit code: $LASTEXITCODE"
                     } catch {
                         Write-Error "Job failed: $_"
                     }

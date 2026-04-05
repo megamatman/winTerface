@@ -208,27 +208,6 @@ function Get-ProfileHealthStatus {
     }
 }
 
-function Get-DevEnvironmentInfo {
-    <#
-    .SYNOPSIS
-        Retrieves dev environment information from winSetup.
-    .DESCRIPTION
-        Attempts to call Show-DevEnvironment if available. Returns placeholder
-        data when winSetup functions are not loaded.
-    .OUTPUTS
-        [hashtable] @{ Status = 'Ok'|'Unavailable'; Data = object|$null }
-    #>
-    try {
-        if (Get-Command 'Show-DevEnvironment' -ErrorAction SilentlyContinue) {
-            $info = Show-DevEnvironment 2>$null
-            return @{ Status = 'Ok'; Data = $info }
-        }
-    }
-    catch {}
-
-    return @{ Status = 'Unavailable'; Data = $null }
-}
-
 # ---------------------------------------------------------------------------
 # Update execution
 # ---------------------------------------------------------------------------
@@ -268,11 +247,15 @@ function Show-ElevationWarning {
         [Terminal.Gui.Application]::RequestStop()
     })
 
+    $script:UpdateFlowActive = $true
     try {
         [Terminal.Gui.Application]::Run($dialog)
     }
     catch {
         return $false
+    }
+    finally {
+        $script:UpdateFlowActive = $false
     }
     return $script:_ElevWarningResult
 }

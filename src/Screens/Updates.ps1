@@ -1,4 +1,4 @@
-# Updates.ps1 - Update management screen
+﻿# Updates.ps1 - Update management screen
 
 $script:UpdateOutputView = $null
 $script:UpdateOutputText = ''

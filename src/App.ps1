@@ -1,4 +1,4 @@
-# App.ps1 - Main application loop, layout construction, and Terminal.Gui bootstrap
+﻿# App.ps1 - Main application loop, layout construction, and Terminal.Gui bootstrap
 
 $script:Layout = $null
 

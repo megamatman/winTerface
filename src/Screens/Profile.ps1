@@ -1,4 +1,4 @@
-# Profile.ps1 - Profile management screen with health checks, drift detection, and actions
+﻿# Profile.ps1 - Profile management screen with health checks, drift detection, and actions
 
 $script:ProfileHealthData = @()
 $script:ProfileDriftData  = $null
@@ -284,7 +284,9 @@ function Invoke-ProfileRedeployAction {
     })
     $cancelBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
 
-    [Terminal.Gui.Application]::Run($dialog)
+    $script:UpdateFlowActive = $true
+    try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+    $script:UpdateFlowActive = $false
 
     if (-not $script:_RedeployConfirmed) { return }
 
@@ -341,7 +343,9 @@ function Show-DriftView {
     $tv.Text = $text
 
     $dialog.Add($tv)
-    [Terminal.Gui.Application]::Run($dialog)
+    $script:UpdateFlowActive = $true
+    try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+    $script:UpdateFlowActive = $false
 }
 
 function Invoke-ProfileCompare {
@@ -386,7 +390,9 @@ function Show-OpenFileDialog {
 
     $dialog.Add($optList)
     $optList.SetFocus()
-    [Terminal.Gui.Application]::Run($dialog)
+    $script:UpdateFlowActive = $true
+    try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+    $script:UpdateFlowActive = $false
 
     $source   = Join-Path $env:WINSETUP 'profile.ps1'
     $deployed = $PROFILE
@@ -414,5 +420,7 @@ function Show-VSCodeNotFoundDialog {
     $lbl = [Terminal.Gui.Label]::new(" VS Code ('code') is not on PATH.")
     $lbl.X = 1; $lbl.Y = 1; $lbl.Width = [Terminal.Gui.Dim]::Fill(1)
     $dialog.Add($lbl)
-    [Terminal.Gui.Application]::Run($dialog)
+    $script:UpdateFlowActive = $true
+    try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+    $script:UpdateFlowActive = $false
 }
