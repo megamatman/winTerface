@@ -241,213 +241,249 @@ function Show-HelpOverlay {
 # Background polling (called every 500 ms by the main-loop timer)
 # ---------------------------------------------------------------------------
 
+function Invoke-UpdateCheckPoll {
+    <#
+    .SYNOPSIS
+        Polls the background update-cache check job.
+    #>
+    Update-BackgroundCheckStatus
+}
+
+function Invoke-UpdateRunPoll {
+    <#
+    .SYNOPSIS
+        Polls the full or queued per-package update job.
+    #>
+    if (-not $script:UpdateRunJob) { return }
+
+    $job = $script:UpdateRunJob
+
+    # Receive incremental output
+    try {
+        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+        foreach ($line in $newOutput) {
+            if ($null -ne $line) {
+                Add-UpdateOutput -Text "$line"
+            }
+        }
+    }
+    catch {}
+
+    # Detect completion -- capture state before removing the job
+    $jobState = try { $job.State } catch { 'Failed' }
+    if ($jobState -ne 'Running') {
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+        $script:UpdateRunJob       = $null
+        $script:UpdateRunStartTime = $null
+
+        if ($script:IsQueuedUpdate) {
+            # Record per-tool result and advance the queue
+            $currentPkg = if ($script:UpdatePackageIndex -ge 0 -and
+                $script:UpdatePackageIndex -lt $script:UpdatePackageQueue.Count) {
+                $script:UpdatePackageQueue[$script:UpdatePackageIndex]
+            } else { $null }
+
+            if ($currentPkg) {
+                $status = if ($jobState -eq 'Completed') { 'success' } else { 'failed' }
+                $script:UpdatePackageResults[$currentPkg.name] = $status
+                Update-UpdateListItemStatus -Name $currentPkg.name -Status $status
+            }
+
+            $script:UpdatePackageIndex++
+            if ($script:UpdatePackageIndex -lt $script:UpdatePackageQueue.Count) {
+                Start-NextPackageUpdate
+            } else {
+                Complete-PackageUpdateQueue
+            }
+        } else {
+            # Full update completed
+            $exitMsg = if ($jobState -eq 'Completed') { 'succeeded' } else { "finished ($jobState)" }
+            Add-UpdateOutput -Text ''
+            Add-UpdateOutput -Text "--- Update $exitMsg ---"
+            Start-BackgroundUpdateCheck -Force
+        }
+    }
+}
+
+function Invoke-SearchPoll {
+    <#
+    .SYNOPSIS
+        Polls the wizard package search jobs (choco, winget, PyPI).
+    #>
+    if ($script:ChocoSearchJob -or $script:WingetSearchJob -or $script:PyPISearchJob) {
+        Update-SearchJobStatus
+    }
+}
+
+function Invoke-DescriptionPoll {
+    <#
+    .SYNOPSIS
+        Polls the lazy description fetch job for choco/winget search results.
+    #>
+    if (-not $script:DescriptionJob) { return }
+
+    $job = $script:DescriptionJob
+    $jobState = try { $job.State } catch { 'Failed' }
+    if ($jobState -ne 'Running') {
+        $desc = ''
+        try { $desc = @(Receive-Job $job -ErrorAction SilentlyContinue) | Select-Object -First 1 } catch {}
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+        $script:DescriptionJob = $null
+
+        if ([string]::IsNullOrWhiteSpace($desc)) { $desc = 'No description available.' }
+
+        # Cache the description in the results array so repeat highlights don't re-fetch
+        $meta = $script:_DescriptionResult
+        if ($meta -and $script:_SearchResults -and
+            $meta.ListIndex -ge 0 -and $meta.ListIndex -lt $script:_SearchResults.Count) {
+            $results = $script:_SearchResults[$meta.ListIndex]
+            if ($results -and $meta.ItemIndex -ge 0 -and $meta.ItemIndex -lt $results.Count) {
+                $results[$meta.ItemIndex].Description = $desc
+            }
+        }
+
+        # Update the description panel if still on the AddTool screen
+        if ($script:_ResultDescView -and $script:CurrentScreen -eq 'AddTool') {
+            try {
+                $script:_ResultDescView.Text = $desc
+                $script:_ResultDescView.SetNeedsDisplay()
+            } catch {}
+        }
+    }
+}
+
+function Invoke-ProfileRedeployPoll {
+    <#
+    .SYNOPSIS
+        Polls the profile redeploy job and streams output to the detail panel.
+    #>
+    if (-not $script:ProfileRedeployJob) { return }
+
+    $job = $script:ProfileRedeployJob
+
+    try {
+        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+        foreach ($line in $newOutput) {
+            if ($null -ne $line) {
+                $script:ProfileRedeployOutput += "$line`n"
+            }
+        }
+        if ($script:ProfileDetailView -and $script:CurrentScreen -eq 'Profile') {
+            $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
+            $script:ProfileDetailView.SetNeedsDisplay()
+        }
+    }
+    catch {}
+
+    $jobState = try { $job.State } catch { 'Failed' }
+    if ($jobState -ne 'Running') {
+        $script:ProfileRedeployOutput += "`n--- Redeploy complete ---`n"
+        if ($script:ProfileDetailView -and $script:CurrentScreen -eq 'Profile') {
+            try {
+                $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
+                $script:ProfileDetailView.SetNeedsDisplay()
+            } catch {}
+        }
+
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+        $script:ProfileRedeployJob = $null
+
+        # Show reload reminder after a successful redeploy
+        if ($jobState -eq 'Completed' -and $script:CurrentScreen -eq 'Profile') {
+            Show-ProfileReloadReminder
+        }
+
+        if ($script:CurrentScreen -eq 'Profile') {
+            Switch-Screen -ScreenName 'Profile'
+        }
+    }
+}
+
+function Invoke-InventoryPoll {
+    <#
+    .SYNOPSIS
+        Polls the tool inventory scan job.
+    #>
+    if (-not $script:ToolInventoryJob) { return }
+
+    $job = $script:ToolInventoryJob
+    $jobState = try { $job.State } catch { 'Failed' }
+    if ($jobState -ne 'Running') {
+        try {
+            $script:ToolInventoryData = @(Receive-Job $job -ErrorAction Stop)
+        } catch {}
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+        $script:ToolInventoryJob = $null
+
+        if ($script:CurrentScreen -eq 'Config' -and $script:ConfigSectionIndex -eq 2) {
+            Update-ConfigDetail -Index 2
+        }
+        elseif ($script:CurrentScreen -eq 'Tools') {
+            Switch-Screen -ScreenName 'Tools'
+        }
+    }
+}
+
+function Invoke-ToolActionPoll {
+    <#
+    .SYNOPSIS
+        Polls the tool install/update/remove action job.
+    #>
+    if (-not $script:ToolActionJob) { return }
+
+    $job = $script:ToolActionJob
+    try {
+        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+        foreach ($line in $newOutput) {
+            if ($null -ne $line) { Add-ToolsOutput -Text "$line" }
+        }
+    } catch {}
+
+    $jobState = try { $job.State } catch { 'Failed' }
+    if ($jobState -ne 'Running') {
+        # Check for errors in the job -- 'Completed' only means the process
+        # exited, not that it succeeded.
+        $hasErrors = $false
+        try { $hasErrors = $job.ChildJobs[0].Error.Count -gt 0 } catch {}
+        $exitMsg = if ($jobState -eq 'Failed') { 'Failed' }
+                   elseif ($hasErrors) { 'Completed with errors' }
+                   else { 'Done' }
+        Add-ToolsOutput -Text "--- $exitMsg ---"
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+        $script:ToolActionJob = $null
+
+        # If this was an uninstall, remove the tool from the in-memory
+        # KnownTools array. The file on disk was already updated by
+        # Uninstall-Tool.ps1 Step 5, but the running process has stale data.
+        if ($script:_RemovingToolName) {
+            $script:KnownTools = @($script:KnownTools |
+                Where-Object { $_.Name -ne $script:_RemovingToolName })
+            $script:_RemovingToolName = $null
+        }
+
+        # Refresh tool inventory after action completes
+        $script:ToolInventoryData = $null
+        Get-ToolInventory
+    }
+}
+
 function Invoke-BackgroundPoll {
     <#
     .SYNOPSIS
         Polls all active background jobs.  Called by the 500 ms timer callback.
     .DESCRIPTION
-        Unhandled exceptions inside a .NET timer delegate propagate through
-        Application.Run() and crash the process. All poll logic is wrapped
-        in try/catch. $job.State is captured before Remove-Job -- accessing
-        State on a disposed job object throws.
+        Orchestrator that delegates to named poll functions. The outer try/catch
+        prevents unhandled exceptions from propagating through Application.Run().
     #>
     try {
-
-    # 1 -- update check job
-    Update-BackgroundCheckStatus
-
-    # 2 -- update run job
-    if ($script:UpdateRunJob) {
-        $job = $script:UpdateRunJob
-
-        # Receive incremental output
-        try {
-            $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
-            foreach ($line in $newOutput) {
-                if ($null -ne $line) {
-                    Add-UpdateOutput -Text "$line"
-                }
-            }
-        }
-        catch {}
-
-        # Detect completion -- capture state before removing the job
-        $jobState = try { $job.State } catch { 'Failed' }
-        if ($jobState -ne 'Running') {
-            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
-            $script:UpdateRunJob       = $null
-            $script:UpdateRunStartTime = $null
-
-            if ($script:IsQueuedUpdate) {
-                # Record per-tool result and advance the queue
-                $currentPkg = if ($script:UpdatePackageIndex -ge 0 -and
-                    $script:UpdatePackageIndex -lt $script:UpdatePackageQueue.Count) {
-                    $script:UpdatePackageQueue[$script:UpdatePackageIndex]
-                } else { $null }
-
-                if ($currentPkg) {
-                    $status = if ($jobState -eq 'Completed') { 'success' } else { 'failed' }
-                    $script:UpdatePackageResults[$currentPkg.name] = $status
-                    Update-UpdateListItemStatus -Name $currentPkg.name -Status $status
-                }
-
-                $script:UpdatePackageIndex++
-                if ($script:UpdatePackageIndex -lt $script:UpdatePackageQueue.Count) {
-                    Start-NextPackageUpdate
-                } else {
-                    Complete-PackageUpdateQueue
-                }
-            } else {
-                # Full update completed
-                $exitMsg = if ($jobState -eq 'Completed') { 'succeeded' } else { "finished ($jobState)" }
-                Add-UpdateOutput -Text ''
-                Add-UpdateOutput -Text "--- Update $exitMsg ---"
-                Start-BackgroundUpdateCheck -Force
-            }
-        }
-    }
-
-    # 3 -- wizard search jobs
-    if ($script:ChocoSearchJob -or $script:WingetSearchJob -or $script:PyPISearchJob) {
-        Update-SearchJobStatus
-    }
-
-    # 3b -- lazy description fetch job (for choco/winget search results)
-    if ($script:DescriptionJob) {
-        $job = $script:DescriptionJob
-        $jobState = try { $job.State } catch { 'Failed' }
-        if ($jobState -ne 'Running') {
-            $desc = ''
-            try { $desc = @(Receive-Job $job -ErrorAction SilentlyContinue) | Select-Object -First 1 } catch {}
-            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
-            $script:DescriptionJob = $null
-
-            if ([string]::IsNullOrWhiteSpace($desc)) { $desc = 'No description available.' }
-
-            # Cache the description in the results array so repeat highlights don't re-fetch
-            $meta = $script:_DescriptionResult
-            if ($meta -and $script:_SearchResults -and
-                $meta.ListIndex -ge 0 -and $meta.ListIndex -lt $script:_SearchResults.Count) {
-                $results = $script:_SearchResults[$meta.ListIndex]
-                if ($results -and $meta.ItemIndex -ge 0 -and $meta.ItemIndex -lt $results.Count) {
-                    $results[$meta.ItemIndex].Description = $desc
-                }
-            }
-
-            # Update the description panel if still on the AddTool screen
-            if ($script:_ResultDescView -and $script:CurrentScreen -eq 'AddTool') {
-                try {
-                    $script:_ResultDescView.Text = $desc
-                    $script:_ResultDescView.SetNeedsDisplay()
-                } catch {}
-            }
-        }
-    }
-
-    # 4 -- profile redeploy job
-    if ($script:ProfileRedeployJob) {
-        $job = $script:ProfileRedeployJob
-
-        try {
-            $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
-            foreach ($line in $newOutput) {
-                if ($null -ne $line) {
-                    $script:ProfileRedeployOutput += "$line`n"
-                }
-            }
-            if ($script:ProfileDetailView -and $script:CurrentScreen -eq 'Profile') {
-                $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
-                $script:ProfileDetailView.SetNeedsDisplay()
-            }
-        }
-        catch {}
-
-        $jobState = try { $job.State } catch { 'Failed' }
-        if ($jobState -ne 'Running') {
-            $script:ProfileRedeployOutput += "`n--- Redeploy complete ---`n"
-            if ($script:ProfileDetailView -and $script:CurrentScreen -eq 'Profile') {
-                try {
-                    $script:ProfileDetailView.Text = $script:ProfileRedeployOutput
-                    $script:ProfileDetailView.SetNeedsDisplay()
-                } catch {}
-            }
-
-            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
-            $script:ProfileRedeployJob = $null
-
-            # Show reload reminder after a successful redeploy
-            if ($jobState -eq 'Completed' -and $script:CurrentScreen -eq 'Profile') {
-                Show-ProfileReloadReminder
-            }
-
-            if ($script:CurrentScreen -eq 'Profile') {
-                Switch-Screen -ScreenName 'Profile'
-            }
-        }
-    }
-
-    # 5 -- tool inventory job (config screen or tools screen)
-    if ($script:ToolInventoryJob) {
-        $job = $script:ToolInventoryJob
-        $jobState = try { $job.State } catch { 'Failed' }
-        if ($jobState -ne 'Running') {
-            try {
-                $script:ToolInventoryData = @(Receive-Job $job -ErrorAction Stop)
-            } catch {}
-            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
-            $script:ToolInventoryJob = $null
-
-            if ($script:CurrentScreen -eq 'Config' -and $script:ConfigSectionIndex -eq 2) {
-                Update-ConfigDetail -Index 2
-            }
-            elseif ($script:CurrentScreen -eq 'Tools') {
-                Switch-Screen -ScreenName 'Tools'
-            }
-        }
-    }
-
-    # 6 -- tool action job (install/update/remove from Tools screen)
-    if ($script:ToolActionJob) {
-        $job = $script:ToolActionJob
-        try {
-            $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
-            foreach ($line in $newOutput) {
-                if ($null -ne $line) { Add-ToolsOutput -Text "$line" }
-            }
-        } catch {}
-
-        $jobState = try { $job.State } catch { 'Failed' }
-        if ($jobState -ne 'Running') {
-            # Check for errors in the job -- 'Completed' only means the process
-            # exited, not that it succeeded.
-            $hasErrors = $false
-            try { $hasErrors = $job.ChildJobs[0].Error.Count -gt 0 } catch {}
-            $exitMsg = if ($jobState -eq 'Failed') { 'Failed' }
-                       elseif ($hasErrors) { 'Completed with errors' }
-                       else { 'Done' }
-            Add-ToolsOutput -Text "--- $exitMsg ---"
-            try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
-            $script:ToolActionJob = $null
-
-            # If this was an uninstall, remove the tool from the in-memory
-            # KnownTools array. The file on disk was already updated by
-            # Uninstall-Tool.ps1 Step 5, but the running process has stale data.
-            if ($script:_RemovingToolName) {
-                $script:KnownTools = @($script:KnownTools |
-                    Where-Object { $_.Name -ne $script:_RemovingToolName })
-                $script:_RemovingToolName = $null
-            }
-
-            # Refresh tool inventory after action completes
-            $script:ToolInventoryData = $null
-            Get-ToolInventory
-        }
-    }
-
+        Invoke-UpdateCheckPoll
+        Invoke-UpdateRunPoll
+        Invoke-SearchPoll
+        Invoke-DescriptionPoll
+        Invoke-ProfileRedeployPoll
+        Invoke-InventoryPoll
+        Invoke-ToolActionPoll
     } catch {
-        # Intentional: unhandled exceptions inside a .NET timer delegate propagate
-        # through Application.Run() and crash the process. Swallow but record for
-        # diagnosability. Check $script:LastPollError from the About screen or debug.
         $script:LastPollError = "$(Get-Date -Format 'HH:mm:ss') Poll error: $_"
     }
 }
