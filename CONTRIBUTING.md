@@ -111,6 +111,13 @@ The timer poll code checks `$script:UpdateFlowActive` before calling
 Simple dismiss dialogs (OK button only, no state changes possible from
 the timer) may omit the guard, but adding it is always safe.
 
+### Navigation history
+
+`Switch-Screen` records the current screen in `$script:PreviousScreen`
+before switching. The global `Esc` handler uses this to navigate back
+to the previous screen instead of always returning to Home. Only one
+level of history is kept.
+
 ### Switch-Screen safety
 
 `Switch-Screen` calls `$script:Layout.Content.RemoveAll()` then
