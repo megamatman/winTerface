@@ -24,11 +24,11 @@ $script:WingetSearchResults = @()
 # AllowedPattern: field-specific character allowlists to prevent code injection.
 # Values are validated before advancing the wizard step.
 $script:GuidedSteps = @(
-    @{ Title = 'Display name';               Desc = 'What should this tool be called? (e.g. ripgrep, lazygit)';                  Key = 'DisplayName';    Type = 'text';   Required = $true;  Next = 'GuidedManager';   AllowedPattern = '^[a-zA-Z0-9\-\._\s]+$' }
-    @{ Title = 'Package manager';            Desc = 'Which package manager installs this tool?';                                  Key = 'PackageManager'; Type = 'select'; Required = $true;  Next = 'GuidedPackageId'; Options = @('choco','winget','pipx','manual') }
-    @{ Title = 'Package ID';                 Desc = 'Package name or ID used to install (e.g. ripgrep, junegunn.fzf)';           Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/]+$' }
-    @{ Title = 'Verify command';             Desc = 'Command that confirms installation (e.g. rg, fzf, delta)';                  Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\.\_]+$' }
-    @{ Title = 'Profile alias (optional)';   Desc = 'Alias or config to add to profile.ps1 (e.g. Set-Alias lg lazygit)';        Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\_\s\$\=\.\(\)''\"\\:,\|]+$' }
+    @{ Title = 'Display name';               Desc = 'A friendly name for the tool (e.g. ripgrep, lazygit).';                                            Key = 'DisplayName';    Type = 'text';   Required = $true;  Next = 'GuidedManager';   AllowedPattern = '^[a-zA-Z0-9\-\._\s]+$' }
+    @{ Title = 'Package manager';            Desc = 'Which package manager installs this tool?';                                                         Key = 'PackageManager'; Type = 'select'; Required = $true;  Next = 'GuidedPackageId'; Options = @('choco','winget','pipx','manual') }
+    @{ Title = 'Package ID';                 Desc = 'The exact package ID used by the package manager (e.g. BurntSushi.ripgrep.MSVC for winget).';      Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/]+$' }
+    @{ Title = 'Verify command';             Desc = 'The command used to verify installation (e.g. rg --version).';                                      Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\.\_]+$' }
+    @{ Title = 'Profile alias (optional)';   Desc = 'Optional. An alias or config line to add to your PowerShell profile (e.g. Set-Alias rg ripgrep).'; Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\_\s\$\=\.\(\)''\"\\:,\|]+$' }
 )
 
 # ---------------------------------------------------------------------------
@@ -144,13 +144,22 @@ function Build-WizardChoosePath {
 
     $options = [System.Collections.Generic.List[string]]::new()
     $options.Add("  Search package managers")
-    $options.Add("  Guided wizard")
+    $options.Add("  Enter tool details manually")
 
     $optList = [Terminal.Gui.ListView]::new($options)
     $optList.X = 2; $optList.Y = 4
     $optList.Width = [Terminal.Gui.Dim]::Fill(2); $optList.Height = 2
     $optList.AllowsMarking = $false
     if ($script:Colors.Menu) { $optList.ColorScheme = $script:Colors.Menu }
+
+    # Descriptions for each option
+    $desc1 = [Terminal.Gui.Label]::new("    Search choco, winget, and PyPI to find and register a tool automatically.")
+    $desc1.X = 0; $desc1.Y = 7; $desc1.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($desc1)
+
+    $desc2 = [Terminal.Gui.Label]::new("    Provide the tool name, package ID, and profile settings yourself.")
+    $desc2.X = 0; $desc2.Y = 9; $desc2.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($desc2)
 
     $optList.add_OpenSelectedItem({
         param($e)
@@ -164,7 +173,7 @@ function Build-WizardChoosePath {
         Switch-Screen -ScreenName 'AddTool'
     })
 
-    Add-WizardHint -Container $Container -Y 7 -Text "Enter to select, Escape to cancel"
+    Add-WizardHint -Container $Container -Y 11 -Text "Enter to select, Escape to cancel"
 
     $Container.Add($optList)
     $script:Layout.MenuList = $optList
@@ -187,9 +196,9 @@ function Build-WizardSearchInput {
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Search'
 
-    $prompt = [Terminal.Gui.Label]::new("  Enter a tool name to search for:")
-    $prompt.X = 0; $prompt.Y = 2; $prompt.Width = [Terminal.Gui.Dim]::Fill()
-    $Container.Add($prompt)
+    $context = [Terminal.Gui.Label]::new("  Enter a search term to find the tool in package managers.")
+    $context.X = 0; $context.Y = 2; $context.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($context)
 
     # $tf is function-local and resolves to $null in .NET event handlers.
     # Stored as $script:_SearchInput before registering the KeyPress handler.
@@ -332,6 +341,10 @@ function Build-WizardSearchResults {
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Search Results'
 
+    $context = [Terminal.Gui.Label]::new("  Select a result to use as the basis for this tool.")
+    $context.X = 0; $context.Y = 1; $context.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($context)
+
     # --- Chocolatey pane (left) ---
     $chocoFrame = [Terminal.Gui.FrameView]::new("Chocolatey ($($script:ChocoSearchResults.Count))")
     $chocoFrame.X = 0; $chocoFrame.Y = 2
@@ -421,7 +434,11 @@ function Build-WizardReviewFields {
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Review'
 
-    $y = 2
+    $context = [Terminal.Gui.Label]::new("  Review and edit the tool details before registering.")
+    $context.X = 0; $context.Y = 1; $context.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($context)
+
+    $y = 3
     $fields = @(
         @{ Label = 'Display name';    Value = $script:WizardData.DisplayName }
         @{ Label = 'Package manager'; Value = $script:WizardData.PackageManager }
@@ -625,11 +642,15 @@ function Build-WizardConfirmation {
 
     Add-WizardHeader -Container $Container -Breadcrumb 'Confirmation'
 
+    $context = [Terminal.Gui.Label]::new("  Confirm the changes that will be made to your winSetup configuration.")
+    $context.X = 0; $context.Y = 1; $context.Width = [Terminal.Gui.Dim]::Fill()
+    $Container.Add($context)
+
     # Generate diff preview
     $diffText = Get-ToolDiffPreview -ToolData $script:WizardData
 
     $tv = [Terminal.Gui.TextView]::new()
-    $tv.X = 1; $tv.Y = 2
+    $tv.X = 1; $tv.Y = 3
     $tv.Width  = [Terminal.Gui.Dim]::Fill(1)
     $tv.Height = [Terminal.Gui.Dim]::Fill(3)
     $tv.ReadOnly = $true
