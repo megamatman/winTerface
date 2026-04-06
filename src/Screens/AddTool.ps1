@@ -271,10 +271,14 @@ function Save-NewToolRegistration {
         Mirrors Uninstall-Tool.ps1 Step 5 in reverse. Backs up WinSetup.ps1
         before editing. Updates the in-memory array and invalidates cached
         inventory so the next Get-ToolInventory picks up the new tool.
+    .OUTPUTS
+        [string] Empty on success. Error message on failure.
     #>
     try {
         $wtWinSetup = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'WinSetup.ps1'
-        if (-not (Test-Path $wtWinSetup)) { return }
+        if (-not (Test-Path $wtWinSetup)) {
+            return "WinSetup.ps1 not found at $wtWinSetup. Tool inventory will not include this tool until restarted."
+        }
 
         $backup = "$wtWinSetup.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
         Copy-Item $wtWinSetup $backup -ErrorAction SilentlyContinue
@@ -311,7 +315,11 @@ function Save-NewToolRegistration {
             Desc    = "$($script:WizardData.DisplayName) tool."
         }
         $script:ToolInventoryData = $null
-    } catch {}
+        return ''
+    }
+    catch {
+        return "KnownTools update failed: $($_.Exception.Message). The tool was registered in winSetup but may not appear in the inventory until restarted."
+    }
 }
 
 function Invoke-WizardConfirm {
@@ -324,7 +332,7 @@ function Invoke-WizardConfirm {
     $result = Write-ToolChanges -ToolData $script:WizardData
 
     if ($result.Success) {
-        Save-NewToolRegistration
+        $regError = Save-NewToolRegistration
         $fileCount = $result.FilesWritten.Count
         $toolName  = $script:WizardData.DisplayName
 
@@ -332,11 +340,20 @@ function Invoke-WizardConfirm {
         $script:_InstallNow = $false
         $installBtn = [Terminal.Gui.Button]::new("_Install now")
         $laterBtn   = [Terminal.Gui.Button]::new("_Later")
-        $dialog = [Terminal.Gui.Dialog]::new("Tool registered", 54, 9,
+
+        $dialogHeight = if ($regError) { 12 } else { 9 }
+        $dialog = [Terminal.Gui.Dialog]::new("Tool registered", 62, $dialogHeight,
             [Terminal.Gui.Button[]]@($installBtn, $laterBtn))
-        $lbl = [Terminal.Gui.Label]::new(
-            " '$toolName' registered ($fileCount files written).`n`n Install it now?")
-        $lbl.X = 1; $lbl.Y = 1; $lbl.Width = [Terminal.Gui.Dim]::Fill(1); $lbl.Height = 3
+
+        $msgText = " '$toolName' registered ($fileCount files written)."
+        if ($regError) {
+            $msgText += "`n`n Warning: $regError"
+        }
+        $msgText += "`n`n Install it now?"
+
+        $lblHeight = if ($regError) { 6 } else { 3 }
+        $lbl = [Terminal.Gui.Label]::new($msgText)
+        $lbl.X = 1; $lbl.Y = 1; $lbl.Width = [Terminal.Gui.Dim]::Fill(1); $lbl.Height = $lblHeight
         $dialog.Add($lbl)
 
         $installBtn.add_Clicked({ $script:_InstallNow = $true; [Terminal.Gui.Application]::RequestStop() })
