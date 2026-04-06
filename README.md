@@ -128,12 +128,20 @@ winTerface/
       Updates.ps1             Update management with per-tool and full updates
       Tools.ps1               Tool inventory with install, update, remove actions
       AddTool.ps1             Multi-step wizard: search or guided entry
+      AddTool-Search.ps1      Search wizard path: job management, result sections, descriptions
+      AddTool-Guided.ps1      Guided wizard steps, field validation, AllowedPattern handling
       Profile.ps1             Health checks, drift detection, redeploy
       Config.ps1              Settings editor, path management, cache viewer
       About.ps1               Version and environment info
+      quotes.txt              Inspirational quotes data file for the home screen
 
   tests/
     ToolWriter.Tests.ps1      Pester tests for code generation
+    PackageManager.Tests.ps1  Pester tests for choco/winget/pipx output parsing and search
+    Commands.Tests.ps1        Pester tests for fuzzy matching, scoring, tab completion
+    Config.Tests.ps1          Pester tests for interval validation, path validation, read/write
+    UpdateCache.Tests.ps1     Pester tests for ISO 8601 date handling, staleness, structure
+    WinSetup.Tests.ps1        Pester tests for KnownTools registry parsing and metadata merge
 
   docs/
     how-to-add-a-tool.md      Guide to registering tools via the wizard
@@ -146,4 +154,5 @@ winTerface/
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [How to add a tool](docs/how-to-add-a-tool.md)
 - [How to manage your profile](docs/how-to-manage-profile.md)
+- [Release notes](RELEASE-NOTES.md)
 - [Contributing](CONTRIBUTING.md)

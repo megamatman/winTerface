@@ -28,7 +28,7 @@
 28. "The only way to learn a new programming language is by writing programs in it." – Dennis Ritchie
 29. "Complexity is the enemy of reliability." – Tony Hoare
 30. "Standardize on the problem, not the solution." – Unknown
-31. "Don't comment bad code—rewrite it." – Brian Kernighan
+31. "Don't comment bad code; rewrite it." – Brian Kernighan
 32. "If you think your users are idiots, only idiots will use your software." – Linus Torvalds
 33. "Computers are good at following instructions, but not at reading your mind." – Donald Knuth
 34. "Measuring programming progress by lines of code is like measuring aircraft building progress by weight." – Bill Gates

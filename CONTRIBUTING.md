@@ -122,8 +122,8 @@ the timer) may omit the guard, but adding it is always safe.
 `Build-*Screen`. This destroys all child views of the content area.
 
 **Safe to call from:**
-- The timer callback (`Invoke-BackgroundPoll`) — the standard path.
-- `OpenSelectedItem` handlers — the event fires after selection
+- The timer callback (`Invoke-BackgroundPoll`), the standard path.
+- `OpenSelectedItem` handlers. The event fires after selection
   completes, and the handler runs on the main thread. Works in
   Terminal.Gui v1 because `RemoveAll()` targets the content container,
   not the view that owns the event.
@@ -134,7 +134,7 @@ handler destroys the view mid-dispatch. Terminal.Gui v1 tolerates this
 in practice because the content area is a separate container, but it
 violates the library's design contract. The Updates screen explicitly
 avoids this for F5 (see comment at `Updates.ps1`). Other screens use
-the pattern — this is a known inconsistency, not a bug to fix.
+the pattern; this is a known inconsistency, not a bug to fix.
 
 ## Background poll architecture
 
@@ -154,13 +154,13 @@ The poll function checks these job types in order:
 
 | # | Job Variable | Purpose | Polled By |
 |---|---|---|---|
-| 1 | `$script:UpdateCheckJob` | Background package manager update check | `Update-BackgroundCheckStatus` |
-| 2 | `$script:UpdateRunJob` | Full or per-package update execution | Inline in `Invoke-BackgroundPoll` |
-| 3 | `$script:ChocoSearchJob`, `$script:WingetSearchJob`, `$script:PyPISearchJob` | AddTool wizard package search | `Update-SearchJobStatus` |
-| 3b | `$script:DescriptionJob` | Lazy description fetch for choco/winget results | Inline in `Invoke-BackgroundPoll` |
-| 4 | `$script:ProfileRedeployJob` | Profile redeploy via Apply-PowerShellProfile.ps1 | Inline in `Invoke-BackgroundPoll` |
-| 5 | `$script:ToolInventoryJob` | Tool inventory scan (Get-Command + --version) | Inline in `Invoke-BackgroundPoll` |
-| 6 | `$script:ToolActionJob` | Tool install/update/remove from Tools screen | Inline in `Invoke-BackgroundPoll` |
+| 1 | `$script:UpdateCheckJob` | Background package manager update check | `Invoke-UpdateCheckPoll` (delegates to `Update-BackgroundCheckStatus`) |
+| 2 | `$script:UpdateRunJob` | Full or per-package update execution | `Invoke-UpdateRunPoll` |
+| 3 | `$script:ChocoSearchJob`, `$script:WingetSearchJob`, `$script:PyPISearchJob` | AddTool wizard package search | `Invoke-SearchPoll` (delegates to `Update-SearchJobStatus`) |
+| 3b | `$script:DescriptionJob` | Lazy description fetch for choco/winget results | `Invoke-DescriptionPoll` |
+| 4 | `$script:ProfileRedeployJob` | Profile redeploy via Apply-PowerShellProfile.ps1 | `Invoke-ProfileRedeployPoll` |
+| 5 | `$script:ToolInventoryJob` | Tool inventory scan (Get-Command + --version) | `Invoke-InventoryPoll` |
+| 6 | `$script:ToolActionJob` | Tool install/update/remove from Tools screen | `Invoke-ToolActionPoll` |
 
 ### Adding a new job type
 
@@ -188,7 +188,7 @@ The poll function checks these job types in order:
    }
    ```
 
-4. Always capture `$job.State` before `Remove-Job` — accessing State
+4. Always capture `$job.State` before `Remove-Job`. Accessing State
    on a disposed job throws.
 
 5. Always `Remove-Job` before setting the variable to `$null`.
@@ -199,7 +199,7 @@ The poll function checks these job types in order:
 
 ## How to add a new screen
 
-Use `About.ps1` as the simplest reference — it has a header, labels,
+Use `About.ps1` as the simplest reference: it has a header, labels,
 and a hint bar with no background jobs or key handlers.
 
 ### Step by step
@@ -210,7 +210,7 @@ and a hint bar with no background jobs or key handlers.
    `$script:Layout.MenuList` and call `.SetFocus()`.
 
 2. **Dot-source it.** Add a line in `winTerface.ps1` in the Screens
-   section (load order matters — screens are loaded after services):
+   section (load order matters; screens are loaded after services):
    ```powershell
    . (Join-Path $PSScriptRoot 'src' 'Screens' 'NewScreen.ps1')
    ```
