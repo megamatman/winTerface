@@ -565,5 +565,22 @@ function Start-WinTerface {
     finally {
         # Step 6 - clean shutdown
         [Terminal.Gui.Application]::Shutdown()
+
+        # Step 7 - stop orphaned background jobs. Without this, Start-Job
+        # processes continue running as pwsh.exe after the TUI exits.
+        $jobVars = @(
+            'UpdateCheckJob', 'UpdateRunJob', 'ToolInventoryJob',
+            'ToolActionJob', 'ProfileRedeployJob',
+            'ChocoSearchJob', 'WingetSearchJob', 'PyPISearchJob',
+            'DescriptionJob'
+        )
+        foreach ($name in $jobVars) {
+            $job = Get-Variable -Name $name -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+            if ($job) {
+                try { Stop-Job $job -ErrorAction SilentlyContinue } catch {}
+                try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+                Set-Variable -Name $name -Value $null -Scope Script
+            }
+        }
     }
 }

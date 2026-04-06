@@ -865,6 +865,22 @@ function Add-GuidedSelectInput {
     $selList.SetFocus()
 }
 
+function Get-AllowedPatternDescription {
+    <#
+    .SYNOPSIS
+        Returns a human-readable description of an AllowedPattern regex.
+    #>
+    param([string]$Pattern)
+
+    # Map known patterns to plain-language descriptions
+    switch -Regex ($Pattern) {
+        'a-zA-Z0-9\\-\\._\\s'  { return 'letters, digits, hyphens, dots, underscores, spaces' }
+        'a-zA-Z0-9\\-\\.\_\/'  { return 'letters, digits, hyphens, dots, underscores, slashes' }
+        'a-zA-Z0-9\\-\\.\_\]'  { return 'letters, digits, hyphens, dots, underscores' }
+        default                 { return $Pattern }
+    }
+}
+
 function Add-GuidedTextInput {
     <#
     .SYNOPSIS
@@ -880,6 +896,22 @@ function Add-GuidedTextInput {
     $script:_GuidedInput.Width = [Terminal.Gui.Dim]::Fill(4); $script:_GuidedInput.Height = 1
     if ($script:Colors.CommandBar) { $script:_GuidedInput.ColorScheme = $script:Colors.CommandBar }
 
+    # Inline error label -- hidden until validation fails
+    $script:_GuidedErrorLabel = [Terminal.Gui.Label]::new('')
+    $script:_GuidedErrorLabel.X = 4; $script:_GuidedErrorLabel.Y = 6
+    $script:_GuidedErrorLabel.Width = [Terminal.Gui.Dim]::Fill(4); $script:_GuidedErrorLabel.Height = 1
+    if ($script:Colors.StatusError) { $script:_GuidedErrorLabel.ColorScheme = $script:Colors.StatusError }
+    $Container.Add($script:_GuidedErrorLabel)
+
+    # Clear the error label when the user modifies the text
+    $script:_GuidedInput.add_TextChanged({
+        param($oldText)
+        if ($script:_GuidedErrorLabel) {
+            $script:_GuidedErrorLabel.Text = ''
+            try { $script:_GuidedErrorLabel.SetNeedsDisplay() } catch {}
+        }
+    })
+
     $script:_GuidedInput.add_KeyPress({
         param($e)
         if ($e.KeyEvent.Key -eq [Terminal.Gui.Key]::Enter) {
@@ -891,8 +923,12 @@ function Add-GuidedTextInput {
             # Validate against field-specific allowlist to prevent code injection
             if ($val -and $script:_CurrentStep.AllowedPattern -and
                 $val -notmatch $script:_CurrentStep.AllowedPattern) {
-                # Show inline error -- do not advance
-                $script:_GuidedInput.Text = ''
+                # Show inline error -- leave the user's input in place
+                if ($script:_GuidedErrorLabel) {
+                    $desc = Get-AllowedPatternDescription -Pattern $script:_CurrentStep.AllowedPattern
+                    $script:_GuidedErrorLabel.Text = "Invalid input. Allowed: $desc"
+                    try { $script:_GuidedErrorLabel.SetNeedsDisplay() } catch {}
+                }
                 $e.Handled = $true
                 return
             }
@@ -908,7 +944,7 @@ function Add-GuidedTextInput {
     })
 
     $optionalHint = if (-not $Step.Required) { ' (press Enter to skip)' } else { '' }
-    Add-WizardHint -Container $Container -Y 7 `
+    Add-WizardHint -Container $Container -Y 8 `
         -Text "Enter to continue${optionalHint}, Escape to go back"
 
     $Container.Add($script:_GuidedInput)

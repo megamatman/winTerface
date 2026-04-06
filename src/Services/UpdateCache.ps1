@@ -279,7 +279,11 @@ function Update-BackgroundCheckStatus {
 
     $job = $script:UpdateCheckJob
 
-    if ($job.State -eq 'Completed') {
+    # Capture state before any operations -- accessing State on a disposed
+    # job throws. Consistent with the try/catch pattern in other poll functions.
+    $jobState = try { $job.State } catch { 'Failed' }
+
+    if ($jobState -eq 'Completed') {
         $updateCount = 0
         try {
             $result = Receive-Job $job -ErrorAction Stop
@@ -322,7 +326,7 @@ function Update-BackgroundCheckStatus {
             Switch-Screen -ScreenName 'Updates'
         }
     }
-    elseif ($job.State -eq 'Failed' -or $job.State -eq 'Stopped') {
+    elseif ($jobState -eq 'Failed' -or $jobState -eq 'Stopped') {
         try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
         $script:UpdateCheckJob   = $null
         $script:UpdateCheckState = 'Idle'
