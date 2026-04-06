@@ -41,6 +41,8 @@ $script:WinTerfaceRoot    = $PSScriptRoot
 . (Join-Path $PSScriptRoot 'src' 'Screens' 'Home.ps1')
 . (Join-Path $PSScriptRoot 'src' 'Screens' 'Tools.ps1')
 . (Join-Path $PSScriptRoot 'src' 'Screens' 'AddTool.ps1')
+. (Join-Path $PSScriptRoot 'src' 'Screens' 'AddTool-Search.ps1')
+. (Join-Path $PSScriptRoot 'src' 'Screens' 'AddTool-Guided.ps1')
 . (Join-Path $PSScriptRoot 'src' 'Screens' 'Updates.ps1')
 . (Join-Path $PSScriptRoot 'src' 'Screens' 'Profile.ps1')
 . (Join-Path $PSScriptRoot 'src' 'Screens' 'Config.ps1')
