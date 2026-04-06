@@ -15,6 +15,11 @@ must be followed to avoid crashes:
 - **Never call Switch-Screen from a key event handler.**
   This destroys the view that owns the event mid-dispatch. Trigger
   screen changes from the timer poll instead.
+  *Exception:* The global KeyPress handler on `$top` in `Navigation.ps1`
+  calls `Switch-Screen` directly for the Escape-to-Home navigation.
+  This is safe because `$top` is the application root, not a child view
+  in the content area being replaced. The handler is not destroyed
+  mid-dispatch.
 
 - **Never use nested Application.Run() for modal dialogs during active
   background jobs without guarding screen rebuilds.** The timer

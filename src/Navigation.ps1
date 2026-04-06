@@ -74,6 +74,11 @@ function Invoke-GlobalKeyHandler {
         }
 
         if ($script:CurrentScreen -ne 'Home') {
+            # Known exception to the "never call Switch-Screen from a key
+            # handler" constraint. This handler is registered on $top (the
+            # application root), not on a child view. Destroying the content
+            # area from $top's KeyPress is safe because $top itself is not
+            # part of the view tree being replaced. See CONTRIBUTING.md.
             Switch-Screen -ScreenName 'Home'
             return $true
         }
