@@ -350,8 +350,25 @@ function Add-SearchResultSection {
             $sel = $results[$e.Item]
             $script:WizardData.DisplayName    = $sel.Name
             $script:WizardData.PackageManager = $mgr
-            $script:WizardData.PackageId      = if ($sel.PackageId) { $sel.PackageId } else { $sel.Id }
-            $script:WizardData.VerifyCommand  = ($sel.Name.ToLower() -replace '\s.*', '')
+            $pkgId = if ($sel.PackageId) { $sel.PackageId } else { $sel.Id }
+            $script:WizardData.PackageId      = $pkgId
+
+            # Derive VerifyCommand from the package ID with source-appropriate
+            # transforms. Winget IDs use Publisher.PackageName format; the
+            # command is typically the last segment, lowercased. Choco and PyPI
+            # IDs are already in command-name format.
+            $verifyCmd = switch ($mgr) {
+                'winget' {
+                    $parts = $pkgId -split '\.'
+                    if ($parts.Count -gt 1) { $parts[-1].ToLower() } else { $pkgId.ToLower() }
+                }
+                default { $pkgId.ToLower() }
+            }
+            # Fall back to first word of display name if derived value is empty
+            if ([string]::IsNullOrWhiteSpace($verifyCmd)) {
+                $verifyCmd = ($sel.Name.ToLower() -replace '\s.*', '')
+            }
+            $script:WizardData.VerifyCommand = $verifyCmd
             $script:WizardStep = 'ReviewFields'
             Switch-Screen -ScreenName 'AddTool'
         }
