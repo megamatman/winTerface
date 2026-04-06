@@ -484,8 +484,15 @@ function Invoke-BackgroundPoll {
         Invoke-ProfileRedeployPoll
         Invoke-InventoryPoll
         Invoke-ToolActionPoll
+
+        # Clear any previous poll error on a successful cycle
+        if ($script:LastPollError) {
+            $script:LastPollError = $null
+            if ($script:CurrentScreen -eq 'Home') { Update-HomeStatus }
+        }
     } catch {
         $script:LastPollError = "$(Get-Date -Format 'HH:mm:ss') Poll error: $_"
+        if ($script:CurrentScreen -eq 'Home') { Update-HomeStatus }
     }
 }
 

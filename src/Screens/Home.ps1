@@ -6,6 +6,7 @@ $script:_HomeStatusLabels = @{
     Profile     = $null
     Updates     = $null
     LastChecked = $null
+    PollError   = $null
 }
 
 $script:HomeMenuItems = @(
@@ -137,6 +138,17 @@ function Add-HomeStatusPanel {
         -Status $lastCheckState -X 0 -Y 6
     $Container.Add($lastLabel)
     $script:_HomeStatusLabels.LastChecked = $lastLabel
+
+    # Poll error (hidden when no error)
+    $pollErrText = ''
+    if ($script:LastPollError) {
+        $msg = "$($script:LastPollError)"
+        if ($msg.Length -gt 80) { $msg = $msg.Substring(0, 80) }
+        $pollErrText = "  $bullet $msg"
+    }
+    $pollErrLabel = New-StatusLabel -Text $pollErrText -Status 'Error' -X 0 -Y 7
+    $Container.Add($pollErrLabel)
+    $script:_HomeStatusLabels.PollError = $pollErrLabel
 }
 
 function Update-HomeStatus {
@@ -182,6 +194,20 @@ function Update-HomeStatus {
     }
     if ($scheme) { $labels.LastChecked.ColorScheme = $scheme }
     $labels.LastChecked.SetNeedsDisplay()
+
+    # Poll error
+    if ($labels.PollError) {
+        $bullet = [char]0x25CF
+        if ($script:LastPollError) {
+            $msg = "$($script:LastPollError)"
+            if ($msg.Length -gt 80) { $msg = $msg.Substring(0, 80) }
+            $labels.PollError.Text = "  $bullet $msg"
+            if ($script:Colors.StatusError) { $labels.PollError.ColorScheme = $script:Colors.StatusError }
+        } else {
+            $labels.PollError.Text = ''
+        }
+        $labels.PollError.SetNeedsDisplay()
+    }
 }
 
 function Add-HomeMenuList {
