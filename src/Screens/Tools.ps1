@@ -300,6 +300,13 @@ function Add-ToolsOutput {
     #>
     param([string]$Text)
     $script:ToolsOutputText += "$Text`n"
+
+    # Cap at 500 lines to prevent unbounded memory growth in long sessions
+    $lines = $script:ToolsOutputText -split "`n"
+    if ($lines.Count -gt 500) {
+        $script:ToolsOutputText = ($lines | Select-Object -Last 500) -join "`n"
+    }
+
     if ($script:ToolsOutputView) {
         try {
             $script:ToolsOutputView.Text = $script:ToolsOutputText

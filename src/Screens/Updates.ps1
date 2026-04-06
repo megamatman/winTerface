@@ -414,6 +414,12 @@ function Add-UpdateOutput {
 
     $script:UpdateOutputText += "$Text`n"
 
+    # Cap at 500 lines to prevent unbounded memory growth in long sessions
+    $lines = $script:UpdateOutputText -split "`n"
+    if ($lines.Count -gt 500) {
+        $script:UpdateOutputText = ($lines | Select-Object -Last 500) -join "`n"
+    }
+
     if ($script:UpdateOutputView) {
         try {
             $script:UpdateOutputView.Text = $script:UpdateOutputText
