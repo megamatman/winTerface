@@ -597,31 +597,107 @@ function Open-FileDiffInVSCode {
 # Config management -- tool inventory, path update, cache operations
 # ---------------------------------------------------------------------------
 
-# Tool descriptions for the config screen inventory panel.
-# Same pattern as $script:ProfileDescriptions.
-$script:KnownTools = @(
-    @{ Name = 'Chocolatey';   Command = 'choco';        Manager = 'bootstrap'; Desc = 'Package manager for Windows.' }
-    @{ Name = 'VS Code';      Command = 'code';         Manager = 'choco';     Desc = 'Code editor.' }
-    @{ Name = 'Python';       Command = 'python';       Manager = 'choco';     Desc = 'Python programming language.' }
-    @{ Name = 'Git';          Command = 'git';          Manager = 'choco';     Desc = 'Version control system.' }
-    @{ Name = 'Oh My Posh';   Command = 'oh-my-posh';  Manager = 'winget';    Desc = 'Prompt theme engine.' }
-    @{ Name = 'GitHub CLI';   Command = 'gh';           Manager = 'winget';    Desc = 'GitHub from the command line.' }
-    @{ Name = 'fzf';          Command = 'fzf';          Manager = 'winget';    Desc = 'Fuzzy finder.' }
-    @{ Name = 'ripgrep';      Command = 'rg';           Manager = 'choco';     Desc = 'Fast recursive search tool.' }
-    @{ Name = 'bat';          Command = 'bat';          Manager = 'choco';     Desc = 'Syntax-highlighted cat replacement.' }
-    @{ Name = 'delta';        Command = 'delta';        Manager = 'choco';     Desc = 'Git diff viewer.' }
-    @{ Name = 'lazygit';      Command = 'lazygit';      Manager = 'choco';     Desc = 'Terminal UI for git.' }
-    @{ Name = 'zoxide';       Command = 'zoxide';       Manager = 'choco';     Desc = 'Smarter cd command.' }
-    @{ Name = 'fd';           Command = 'fd';           Manager = 'choco';     Desc = 'Fast file finder.' }
-    @{ Name = 'pyenv';        Command = 'pyenv';        Manager = 'pyenv';     Desc = 'Python version manager.' }
-    @{ Name = 'pipx';         Command = 'pipx';         Manager = 'pip';       Desc = 'Install Python CLI tools in isolation.' }
-    @{ Name = 'ruff';         Command = 'ruff';         Manager = 'pipx';      Desc = 'Python linter and formatter.' }
-    @{ Name = 'pylint';       Command = 'pylint';       Manager = 'pipx';      Desc = 'Python code analysis.' }
-    @{ Name = 'mypy';         Command = 'mypy';         Manager = 'pipx';      Desc = 'Python static type checker.' }
-    @{ Name = 'bandit';       Command = 'bandit';       Manager = 'pipx';      Desc = 'Python security linter.' }
-    @{ Name = 'pre-commit';   Command = 'pre-commit';   Manager = 'pipx';      Desc = 'Git hook manager.' }
-    @{ Name = 'cookiecutter'; Command = 'cookiecutter'; Manager = 'pipx';      Desc = 'Project template tool.' }
+# Supplementary metadata for tools that cannot be fully derived from
+# $PackageRegistry alone. Maps registry key to display Name, CLI Command,
+# and description. Tools not listed here default to: Name = key,
+# Command = key, Desc = '<key> tool.'
+$script:ToolMetadata = @{
+    'vscode'      = @{ Name = 'VS Code';    Command = 'code';       Desc = 'Code editor.' }
+    'python'      = @{ Name = 'Python';      Command = 'python';     Desc = 'Python programming language.' }
+    'git'         = @{ Name = 'Git';         Command = 'git';        Desc = 'Version control system.' }
+    'ohmyposh'    = @{ Name = 'Oh My Posh';  Command = 'oh-my-posh'; Desc = 'Prompt theme engine.' }
+    'gh'          = @{ Name = 'GitHub CLI';  Command = 'gh';         Desc = 'GitHub from the command line.' }
+    'fzf'         = @{ Name = 'fzf';         Command = 'fzf';        Desc = 'Fuzzy finder.' }
+    'ripgrep'     = @{ Name = 'ripgrep';     Command = 'rg';         Desc = 'Fast recursive search tool.' }
+    'bat'         = @{ Name = 'bat';         Command = 'bat';        Desc = 'Syntax-highlighted cat replacement.' }
+    'delta'       = @{ Name = 'delta';       Command = 'delta';      Desc = 'Git diff viewer.' }
+    'lazygit'     = @{ Name = 'lazygit';     Command = 'lazygit';    Desc = 'Terminal UI for git.' }
+    'zoxide'      = @{ Name = 'zoxide';      Command = 'zoxide';     Desc = 'Smarter cd command.' }
+    'fd'          = @{ Name = 'fd';          Command = 'fd';         Desc = 'Fast file finder.' }
+    'pyenv'       = @{ Name = 'pyenv';       Command = 'pyenv';      Desc = 'Python version manager.' }
+    'ruff'        = @{ Name = 'ruff';        Command = 'ruff';       Desc = 'Python linter and formatter.' }
+    'pylint'      = @{ Name = 'pylint';      Command = 'pylint';     Desc = 'Python code analysis.' }
+    'mypy'        = @{ Name = 'mypy';        Command = 'mypy';       Desc = 'Python static type checker.' }
+    'bandit'      = @{ Name = 'bandit';      Command = 'bandit';     Desc = 'Python security linter.' }
+    'pre-commit'  = @{ Name = 'pre-commit';  Command = 'pre-commit'; Desc = 'Git hook manager.' }
+    'cookiecutter'= @{ Name = 'cookiecutter';Command = 'cookiecutter';Desc = 'Project template tool.' }
+}
+
+# Tools not in $PackageRegistry that are managed separately
+$script:BootstrapTools = @(
+    @{ Name = 'Chocolatey'; Command = 'choco'; Manager = 'bootstrap'; Desc = 'Package manager for Windows.' }
+    @{ Name = 'pipx';       Command = 'pipx';  Manager = 'pip';       Desc = 'Install Python CLI tools in isolation.' }
 )
+
+function Get-KnownToolsFromRegistry {
+    <#
+    .SYNOPSIS
+        Parses $PackageRegistry from winSetup and returns tool objects.
+    .DESCRIPTION
+        Reads Update-DevEnvironment.ps1 from the configured winSetup path,
+        extracts $PackageRegistry entries via regex (no Invoke-Expression),
+        and merges with supplementary metadata to produce objects with Name,
+        Command, Manager, and Desc properties. Falls back to an empty array
+        if the file is unreadable. Excludes the PSFzf module entry since it
+        is not a CLI tool.
+    .OUTPUTS
+        [array] Each element: @{ Name; Command; Manager; Desc }
+    #>
+    $results = @()
+
+    # Start with bootstrap tools not in $PackageRegistry
+    $results += $script:BootstrapTools
+
+    $wsPath = $env:WINSETUP
+    if (-not $wsPath) {
+        $config = Get-WinTerfaceConfig
+        if ($config -and $config.winSetupPath) { $wsPath = $config.winSetupPath }
+    }
+
+    if (-not $wsPath) {
+        Write-Warning 'Cannot load KnownTools: winSetup path not configured.'
+        return $results
+    }
+
+    $updateScript = Join-Path $wsPath 'Update-DevEnvironment.ps1'
+    if (-not (Test-Path $updateScript)) {
+        Write-Warning "Cannot load KnownTools: $updateScript not found."
+        return $results
+    }
+
+    try {
+        $content = Get-Content -Path $updateScript -Raw -ErrorAction Stop
+        # Same regex pattern as Uninstall-Tool.ps1 (see INTERFACE.md)
+        $pattern = '"([^"]+)"\s*=\s*@\{\s*Manager\s*=\s*"([^"]+)";\s*Id\s*=\s*"([^"]+)"\s*\}'
+        $regMatches = [regex]::Matches($content, $pattern)
+        foreach ($m in $regMatches) {
+            $key     = $m.Groups[1].Value
+            $manager = $m.Groups[2].Value
+
+            # Skip the PSFzf module entry -- it is not a CLI tool
+            if ($manager -eq 'module') { continue }
+
+            # Merge with supplementary metadata
+            $meta = $script:ToolMetadata[$key]
+            $results += @{
+                Name    = if ($meta) { $meta.Name }    else { $key }
+                Command = if ($meta) { $meta.Command } else { $key }
+                Manager = $manager
+                Desc    = if ($meta) { $meta.Desc }    else { "$key tool." }
+            }
+        }
+    }
+    catch {
+        Write-Warning "Failed to parse `$PackageRegistry from ${updateScript}: $_"
+    }
+
+    return $results
+}
+
+# Initialise $script:KnownTools from the registry at load time.
+# Call sites (Get-ToolInventory, App.ps1 uninstall handler, AddTool.ps1)
+# continue to reference $script:KnownTools directly.
+$script:KnownTools = @(Get-KnownToolsFromRegistry)
 
 $script:ToolInventoryJob  = $null
 $script:ToolInventoryData = $null
