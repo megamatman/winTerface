@@ -71,7 +71,7 @@ cd path\to\winSetup
 
 **Cause:** Some terminal emulators intercept `Ctrl+U` as a line-clear signal before it reaches the application.
 
-**Fix:** Use `Ctrl+R` instead. This key binding was chosen to avoid terminal driver conflicts.
+**Fix:** Use `F6` instead. Function keys are not intercepted by terminal drivers or PSReadLine.
 
 ## Tools screen
 

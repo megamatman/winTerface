@@ -32,7 +32,7 @@ When updates are available:
 | `Space` | Toggle selection on a single update |
 | `A` | Select all updates |
 | `U` | Update selected tools individually |
-| `Ctrl+R` | Run full update (all registered tools) |
+| `F6` | Run full update (all registered tools) |
 | `F5` | Check for new updates |
 | `/` | Focus command bar |
 

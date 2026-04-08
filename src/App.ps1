@@ -210,7 +210,7 @@ function Show-HelpOverlay {
         ""
         " SCREEN-SPECIFIC"
         " ----------------------------------------------------------"
-        "  Updates:   Space toggle, A select all, U update, Ctrl+R all, F5 check"
+        "  Updates:   Space toggle, A select all, U update, F6 all, F5 check"
         "  Tools:     A add, I install, U update, X remove, O open, F5 scan"
         "  Add Tool:  Tab next source, Shift+Tab prev, C confirm, Esc back"
         "  Profile:   R redeploy, D drift, C compare, O open, F5 refresh"

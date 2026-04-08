@@ -117,7 +117,7 @@ function Add-UpdatesListView {
     .DESCRIPTION
         Constructs the AVAILABLE UPDATES section: section header, dynamic column
         headers, separator, a markable ListView pre-selecting all updatable items,
-        and key handlers for A (select all), U (update selected), Ctrl+R (full
+        and key handlers for A (select all), U (update selected), F6 (full
         update), F5 (refresh), and '/' (command bar). Returns a hashtable with
         the ListView and its computed height for layout.
     .PARAMETER Container
@@ -229,9 +229,9 @@ function Add-UpdatesListView {
             return
         }
 
-        # Ctrl+R -- full update (mnemonic: run). Ctrl+A intercepted by
-        # Windows Terminal. Ctrl+U intercepted by terminal driver (stty kill).
-        if ([int]$key -eq 18) {   # ControlR = 18
+        # F6 -- full update. Replaces Ctrl+R which was intercepted by
+        # PSReadLine and Windows Terminal before reaching Terminal.Gui.
+        if ($key -eq [Terminal.Gui.Key]::F6) {
             try {
                 $script:UpdateFlowActive = $true
                 Invoke-FullUpdate
@@ -276,7 +276,7 @@ function Add-UpdatesHintBar {
         Adds the keyboard shortcut hint bar below the update list.
     .DESCRIPTION
         Renders a single label showing available key bindings (Space, A, U,
-        Ctrl+R, F5, Esc) styled with the warning colour scheme.
+        F6, F5, Esc) styled with the warning colour scheme.
     .PARAMETER Container
         The parent view to add the hint bar to.
     .PARAMETER Y
@@ -290,7 +290,7 @@ function Add-UpdatesHintBar {
     )
 
     $hints = [Terminal.Gui.Label]::new(
-        "  [Space] Toggle  [A] All  [U] Update  [Ctrl+R] Update all  [F5] Check  [Esc] Back")
+        "  [Space] Toggle  [A] All  [U] Update  [F6] Update all  [F5] Check  [Esc] Back")
     $hints.X = 0; $hints.Y = $Y
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }

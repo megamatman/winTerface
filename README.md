@@ -58,7 +58,7 @@ On first launch, winTerface prompts for the path to your winSetup directory and 
 | Updates | `Space` | Toggle selection on a single update |
 | Updates | `A` | Select all updates |
 | Updates | `U` | Update selected tools |
-| Updates | `Ctrl+R` | Run full update (all tools) |
+| Updates | `F6` | Run full update (all tools) |
 | Updates | `F5` | Check for new updates |
 | Tools | `A` | Open Add Tool wizard |
 | Tools | `I` | Install selected tool |
