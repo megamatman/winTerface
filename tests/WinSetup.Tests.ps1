@@ -126,3 +126,80 @@ $PackageRegistry = @{
         $custom.Desc | Should -Be 'customtool tool.'
     }
 }
+
+Describe 'Get-ProfileDriftStatus' {
+    BeforeAll {
+        $script:ProfileSource = "# profile content`nSet-Alias lg lazygit`n"
+        $script:LauncherBlock = @"
+
+# winTerface launcher
+function Invoke-WinTerface {
+    & "`$env:WINTERFACE\winTerface.ps1" @args
+}
+Set-Alias wti Invoke-WinTerface
+"@
+    }
+
+    It 'reports InSync when deployed profile has launcher block but no other drift' {
+        $dir = Join-Path $TestDrive 'drift-launcher'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Set-Content -Path (Join-Path $dir 'profile.ps1') -Value $script:ProfileSource -NoNewline
+        $env:WINSETUP = $dir
+
+        $deployedPath = Join-Path $TestDrive 'profile-with-launcher.ps1'
+        Set-Content -Path $deployedPath -Value ($script:ProfileSource + $script:LauncherBlock) -NoNewline
+
+        $savedProfile = $global:PROFILE
+        $global:PROFILE = $deployedPath
+        try {
+            $result = Get-ProfileDriftStatus
+            $result.Status | Should -Be 'InSync'
+        }
+        finally {
+            $global:PROFILE = $savedProfile
+        }
+    }
+
+    It 'reports InSync when deployed profile has no launcher block and matches source' {
+        $dir = Join-Path $TestDrive 'drift-no-launcher'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Set-Content -Path (Join-Path $dir 'profile.ps1') -Value $script:ProfileSource -NoNewline
+        $env:WINSETUP = $dir
+
+        $deployedPath = Join-Path $TestDrive 'profile-no-launcher.ps1'
+        Set-Content -Path $deployedPath -Value $script:ProfileSource -NoNewline
+
+        $savedProfile = $global:PROFILE
+        $global:PROFILE = $deployedPath
+        try {
+            $result = Get-ProfileDriftStatus
+            $result.Status | Should -Be 'InSync'
+        }
+        finally {
+            $global:PROFILE = $savedProfile
+        }
+    }
+
+    It 'reports Drifted for genuine drift even when launcher block is present' {
+        $dir = Join-Path $TestDrive 'drift-genuine'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Set-Content -Path (Join-Path $dir 'profile.ps1') -Value $script:ProfileSource -NoNewline
+        $env:WINSETUP = $dir
+
+        $driftContent = $script:ProfileSource + "# user added this line`n" + $script:LauncherBlock
+        $deployedPath = Join-Path $TestDrive 'profile-genuine-drift.ps1'
+        Set-Content -Path $deployedPath -Value $driftContent -NoNewline
+
+        $savedProfile = $global:PROFILE
+        $global:PROFILE = $deployedPath
+        try {
+            $result = Get-ProfileDriftStatus
+            $result.Status | Should -Be 'Drifted'
+            $result.DiffText | Should -Match 'user added this line'
+            $result.DiffText | Should -Not -Match 'Invoke-WinTerface'
+        }
+        finally {
+            $global:PROFILE = $savedProfile
+        }
+    }
+}

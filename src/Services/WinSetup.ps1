@@ -452,6 +452,28 @@ function Get-ProfileHealthResults {
     return @{ Sections = $results; Error = $null }
 }
 
+function Remove-WinTerfaceLauncherBlock {
+    <#
+    .SYNOPSIS
+        Strips the winTerface launcher block from profile content.
+    .DESCRIPTION
+        Install-WinTerface.ps1 appends a launcher function and wti alias to
+        $PROFILE after winSetup deploys it. This block is a known managed
+        addition and must be excluded from drift detection so it is not
+        flagged as unmanaged drift on every machine with winTerface installed.
+        The block is identified by the "# winTerface launcher" comment header
+        and ends at the Set-Alias line that follows the closing brace.
+    .PARAMETER Content
+        The raw profile content string.
+    .OUTPUTS
+        [string] Content with the launcher block removed.
+    #>
+    param([string]$Content)
+    # Match: optional leading blank lines, the comment header, the function
+    # body through its closing brace, and the Set-Alias line.
+    return $Content -replace '(?m)(\r?\n)*^# winTerface launcher\r?\n[\s\S]*?^Set-Alias wti Invoke-WinTerface\r?\n?', ''
+}
+
 function Get-ProfileDriftStatus {
     <#
     .SYNOPSIS
@@ -478,6 +500,9 @@ function Get-ProfileDriftStatus {
     catch {
         return @{ Status = 'Drifted'; DiffText = "Error reading files: $_" }
     }
+
+    # Strip known managed additions before comparing
+    $deployedRaw = (Remove-WinTerfaceLauncherBlock -Content $deployedRaw).TrimEnd()
 
     if ($deployedRaw -eq $sourceRaw) {
         return @{ Status = 'InSync'; DiffText = '' }
