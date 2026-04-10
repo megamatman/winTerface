@@ -125,6 +125,50 @@ Describe 'Get-ChocoUpdates' {
         $result.Count | Should -Be 0
     }
 
+    It 'excludes entries where current version equals available version' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'choco.exe' } } -ParameterFilter { $Name -eq 'choco' }
+        Mock choco {
+            $global:LASTEXITCODE = 2
+            @(
+                'git|2.44.0|2.45.1|false'
+                'delta|0.19.2|0.19.2|false'
+            )
+        } -ParameterFilter { $args[0] -eq 'outdated' }
+
+        $result = @(Get-ChocoUpdates)
+
+        $result.Count | Should -Be 1
+        $result[0].PackageId | Should -Be 'git'
+    }
+
+    It 'applies both KnownTools and version filters together' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'choco.exe' } } -ParameterFilter { $Name -eq 'choco' }
+        Mock choco {
+            $global:LASTEXITCODE = 2
+            @(
+                'git|2.44.0|2.45.1|false'
+                '7zip|23.01|24.08|false'
+                'delta|0.19.2|0.19.2|false'
+                'bat|0.26.1|0.26.1|false'
+            )
+        } -ParameterFilter { $args[0] -eq 'outdated' }
+
+        $tools = @(
+            @{ Manager = 'choco'; PackageId = 'git' }
+            @{ Manager = 'choco'; PackageId = 'delta' }
+            @{ Manager = 'choco'; PackageId = 'bat' }
+        )
+
+        $result = @(Get-ChocoUpdates -KnownTools $tools)
+
+        # git passes both filters (registry + different version)
+        # 7zip filtered by KnownTools (not in registry)
+        # delta filtered by version (same version)
+        # bat filtered by version (same version)
+        $result.Count | Should -Be 1
+        $result[0].PackageId | Should -Be 'git'
+    }
+
     It 'returns all packages when -KnownTools is not provided' {
         Mock Get-Command { [PSCustomObject]@{ Source = 'choco.exe' } } -ParameterFilter { $Name -eq 'choco' }
         Mock choco {

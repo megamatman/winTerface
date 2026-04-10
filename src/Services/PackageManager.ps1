@@ -55,6 +55,9 @@ function Get-ChocoUpdates {
             # Filter to known choco tools when KnownTools is provided
             if ($chocoIds -and -not $chocoIds.Contains($pkgId)) { continue }
 
+            # Exclude entries where current == available (no real update)
+            if ($parts[1] -eq $parts[2]) { continue }
+
             $results += @{
                 Name             = $pkgId
                 CurrentVersion   = $parts[1]
