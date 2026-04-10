@@ -393,7 +393,7 @@ function Add-UpdatesOutputPane {
     $tv.Width     = [Terminal.Gui.Dim]::Fill()
     $tv.Height    = [Terminal.Gui.Dim]::Fill()
     $tv.ReadOnly  = $true
-    if ($script:Colors.Base) { $tv.ColorScheme = $script:Colors.Base }
+    if ($script:Colors.OutputPane) { $tv.ColorScheme = $script:Colors.OutputPane }
 
     if ($script:UpdateOutputText) { $tv.Text = $script:UpdateOutputText }
 

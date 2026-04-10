@@ -260,15 +260,35 @@ function Invoke-UpdateRunPoll {
     $job = $script:UpdateRunJob
 
     # Receive incremental output
+    $vsCodeOpen = $false
     try {
         $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
         foreach ($line in $newOutput) {
             if ($null -ne $line) {
-                Add-UpdateOutput -Text "$line"
+                $text = "$line"
+                if ($text -match '^VSCODE_OPEN:') {
+                    $vsCodeOpen = $true
+                    continue
+                }
+                Add-UpdateOutput -Text $text
             }
         }
     }
     catch {}
+
+    # VS Code open sentinel: stop the job, warn the user, re-enable actions
+    if ($vsCodeOpen) {
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
+        $script:UpdateRunJob       = $null
+        $script:UpdateRunStartTime = $null
+        $script:IsQueuedUpdate     = $false
+        $script:UpdatePackageQueue = @()
+        $script:UpdatePackageIndex = -1
+        Add-UpdateOutput -Text ''
+        Add-UpdateOutput -Text '[!] VS Code is open. Close it and retry the update.'
+        Add-UpdateOutput -Text ''
+        return
+    }
 
     # Detect completion -- capture state before removing the job
     $jobState = try { $job.State } catch { 'Failed' }

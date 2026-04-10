@@ -127,6 +127,37 @@ $PackageRegistry = @{
     }
 }
 
+Describe 'VSCODE_OPEN sentinel handling' {
+    BeforeAll {
+        $script:AppSource = Get-Content "$PSScriptRoot\..\src\App.ps1" -Raw
+        $script:WinSetupSource = Get-Content "$PSScriptRoot\..\src\Services\WinSetup.ps1" -Raw
+    }
+
+    It 'update job invocations pass -NoWait to Update-DevEnvironment.ps1' {
+        # Both full update and per-package jobs should pass -NoWait
+        $noWaitCalls = [regex]::Matches($script:WinSetupSource, '\$scriptPath\s+-NoWait')
+        $noWaitCalls.Count | Should -BeGreaterOrEqual 1
+
+        $packageNoWait = [regex]::Matches($script:WinSetupSource, '-Package.*-NoWait')
+        $packageNoWait.Count | Should -BeGreaterOrEqual 1
+    }
+
+    It 'poll function detects VSCODE_OPEN sentinel and outputs warning message' {
+        $script:AppSource | Should -Match 'VSCODE_OPEN'
+        $script:AppSource | Should -Match 'VS Code is open\. Close it and retry the update\.'
+    }
+
+    It 'poll function stops and removes the job when sentinel is detected' {
+        # After detecting VSCODE_OPEN, the code should null out UpdateRunJob
+        $script:AppSource | Should -Match 'Remove-Job \$job'
+        $script:AppSource | Should -Match '\$script:UpdateRunJob\s*=\s*\$null'
+    }
+
+    It 're-enables update action by resetting queue state after detection' {
+        $script:AppSource | Should -Match '\$script:IsQueuedUpdate\s*=\s*\$false'
+    }
+}
+
 Describe 'Get-ProfileDriftStatus' {
     BeforeAll {
         $script:ProfileSource = "# profile content`nSet-Alias lg lazygit`n"

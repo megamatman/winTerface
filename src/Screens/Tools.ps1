@@ -271,7 +271,7 @@ function Add-ToolsOutputPane {
     $tv = [Terminal.Gui.TextView]::new()
     $tv.X = 0; $tv.Y = 0; $tv.Width = [Terminal.Gui.Dim]::Fill(); $tv.Height = [Terminal.Gui.Dim]::Fill()
     $tv.ReadOnly = $true
-    if ($script:Colors.Base) { $tv.ColorScheme = $script:Colors.Base }
+    if ($script:Colors.OutputPane) { $tv.ColorScheme = $script:Colors.OutputPane }
     if ($script:ToolsOutputText) { $tv.Text = $script:ToolsOutputText }
 
     $frame.Add($tv)
