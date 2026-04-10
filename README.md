@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="winTerfacewinSetupLogo.png" alt="winSetup logo" />
+</p>
+
 # winTerface
 
 Terminal UI for managing a Windows 11 development environment configured by [winSetup](https://github.com/megamatman/winSetup). Keyboard-driven, pane-based, with slash commands and background job polling. Replaces manual config file editing, update checking, and tool management with a single interactive console.
