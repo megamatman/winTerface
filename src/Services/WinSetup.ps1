@@ -304,7 +304,7 @@ function Invoke-WinSetupUpdate {
             Write-Host "[job] choco: $(if ($choco) { $choco.Source } else { 'NOT FOUND' })"
             Write-Host "[job] winget: $(if ($winget) { $winget.Source } else { 'NOT FOUND' })"
             Write-Host "[job] Running: & '$scriptPath' -NoWait"
-            & $scriptPath -NoWait 2>&1
+            & $scriptPath -NoWait
             Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
@@ -376,7 +376,7 @@ function Start-NextPackageUpdate {
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             Write-Host "[job] Running: & '$scriptPath' -Package '$packageName' -NoWait"
-            & $scriptPath -Package $packageName -NoWait 2>&1
+            & $scriptPath -Package $packageName -NoWait
             Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
