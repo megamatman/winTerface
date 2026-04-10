@@ -9,8 +9,8 @@ must be followed to avoid crashes:
   Write-Host corrupts Terminal.Gui's console driver. Use job return
   values or `$script:` variables to pass data back to the UI.
   Write-Host inside `Start-Job` scriptblocks is acceptable because jobs
-  run in a separate process; their output is captured via `2>&1` and
-  streamed to the TUI through `Receive-Job`.
+  run in a separate process; their output is streamed to the TUI
+  through `Receive-Job`.
 
 - **Never call Switch-Screen from a key event handler.**
   This destroys the view that owns the event mid-dispatch. Trigger
