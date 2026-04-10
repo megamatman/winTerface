@@ -12,9 +12,17 @@ function Get-ChocoUpdates {
         Runs 'choco outdated -r' and parses the pipe-delimited output.
         Returns an empty array if choco is not installed or produces no results.
         Never throws.
+    .PARAMETER KnownTools
+        Optional array of tool objects (same shape as $script:KnownTools).
+        When provided, results are filtered to only packages whose PackageId
+        matches a KnownTools entry with Manager = 'choco' (case-insensitive).
+        When omitted, all outdated packages are returned.
     .OUTPUTS
         [array] Each element: @{ Name; CurrentVersion; AvailableVersion; PackageId; Source }
     #>
+    param(
+        [array]$KnownTools
+    )
     try {
         if (-not (Get-Command choco -ErrorAction SilentlyContinue)) { return @() }
 
@@ -23,17 +31,35 @@ function Get-ChocoUpdates {
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 2) { return @() }
         if (-not $output) { return @() }
 
+        # Build a lookup set of known choco package IDs for filtering
+        $chocoIds = $null
+        if ($KnownTools) {
+            $chocoIds = [System.Collections.Generic.HashSet[string]]::new(
+                [System.StringComparer]::OrdinalIgnoreCase
+            )
+            foreach ($t in $KnownTools) {
+                if ($t.Manager -eq 'choco' -and $t.PackageId) {
+                    [void]$chocoIds.Add($t.PackageId)
+                }
+            }
+        }
+
         $results = @()
         foreach ($line in $output) {
             if ([string]::IsNullOrWhiteSpace($line)) { continue }
             $parts = $line -split '\|'
             if ($parts.Count -lt 3) { continue }
 
+            $pkgId = $parts[0]
+
+            # Filter to known choco tools when KnownTools is provided
+            if ($chocoIds -and -not $chocoIds.Contains($pkgId)) { continue }
+
             $results += @{
-                Name             = $parts[0]
+                Name             = $pkgId
                 CurrentVersion   = $parts[1]
                 AvailableVersion = $parts[2]
-                PackageId        = $parts[0]
+                PackageId        = $pkgId
                 Source           = 'choco'
             }
         }

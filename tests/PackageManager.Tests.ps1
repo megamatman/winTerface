@@ -83,6 +83,59 @@ Describe 'Get-ChocoUpdates' {
 
         $result.Count | Should -Be 0
     }
+
+    It 'filters to known choco tools when -KnownTools is provided' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'choco.exe' } } -ParameterFilter { $Name -eq 'choco' }
+        Mock choco {
+            @(
+                'git|2.44.0|2.45.1|false'
+                '7zip|23.01|24.08|false'
+                'delta|0.17.0|0.18.0|false'
+                'filezilla|3.66.5|3.67.0|false'
+            )
+        } -ParameterFilter { $args[0] -eq 'outdated' }
+        $global:LASTEXITCODE = 2
+
+        $tools = @(
+            @{ Manager = 'choco'; PackageId = 'git' }
+            @{ Manager = 'choco'; PackageId = 'delta' }
+            @{ Manager = 'winget'; PackageId = 'junegunn.fzf' }
+        )
+
+        $result = Get-ChocoUpdates -KnownTools $tools
+
+        $result.Count | Should -Be 2
+        $result[0].PackageId | Should -Be 'git'
+        $result[1].PackageId | Should -Be 'delta'
+    }
+
+    It 'returns empty when -KnownTools has no matching choco packages' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'choco.exe' } } -ParameterFilter { $Name -eq 'choco' }
+        Mock choco {
+            @('7zip|23.01|24.08|false', 'filezilla|3.66.5|3.67.0|false')
+        } -ParameterFilter { $args[0] -eq 'outdated' }
+        $global:LASTEXITCODE = 2
+
+        $tools = @(
+            @{ Manager = 'choco'; PackageId = 'git' }
+        )
+
+        $result = Get-ChocoUpdates -KnownTools $tools
+
+        $result.Count | Should -Be 0
+    }
+
+    It 'returns all packages when -KnownTools is not provided' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'choco.exe' } } -ParameterFilter { $Name -eq 'choco' }
+        Mock choco {
+            @('git|2.44.0|2.45.1|false', '7zip|23.01|24.08|false')
+        } -ParameterFilter { $args[0] -eq 'outdated' }
+        $global:LASTEXITCODE = 2
+
+        $result = Get-ChocoUpdates
+
+        $result.Count | Should -Be 2
+    }
 }
 
 # ---------------------------------------------------------------------------

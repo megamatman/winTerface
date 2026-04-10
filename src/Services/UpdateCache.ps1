@@ -214,9 +214,15 @@ function Start-BackgroundUpdateCheck {
 
     $pkgMgrScript = Join-Path $script:WinTerfaceRoot 'src' 'Services' 'PackageManager.ps1'
 
+    # Build minimal tool objects for the choco filter. $script:KnownTools is
+    # not available inside Start-Job, so pass the relevant entries as an argument.
+    $chocoTools = @($script:KnownTools | Where-Object { $_.Manager -eq 'choco' } | ForEach-Object {
+        @{ Manager = 'choco'; PackageId = $_.PackageId }
+    })
+
     $script:UpdateCheckState = 'Checking'
     $script:UpdateCheckJob   = Start-Job -ScriptBlock {
-        param($scriptPath)
+        param($scriptPath, $knownChocoTools)
         try {
             # Refresh PATH -- Start-Job runs with -NoProfile so choco/winget
             # may not be on PATH.
@@ -226,7 +232,7 @@ function Start-BackgroundUpdateCheck {
 
             . $scriptPath
 
-            $choco  = Get-ChocoUpdates
+            $choco  = Get-ChocoUpdates -KnownTools $knownChocoTools
             $winget = Get-WingetUpdates
             $pipx   = Get-PipxTools
 
@@ -263,7 +269,7 @@ function Start-BackgroundUpdateCheck {
         } catch {
             Write-Error "Job failed: $_"
         }
-    } -ArgumentList $pkgMgrScript
+    } -ArgumentList $pkgMgrScript, $chocoTools
 }
 
 function Update-BackgroundCheckStatus {

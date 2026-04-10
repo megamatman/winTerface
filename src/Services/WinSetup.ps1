@@ -650,8 +650,8 @@ $script:ToolMetadata = @{
 
 # Tools not in $PackageRegistry that are managed separately
 $script:BootstrapTools = @(
-    @{ Name = 'Chocolatey'; Command = 'choco'; Manager = 'bootstrap'; Desc = 'Package manager for Windows.' }
-    @{ Name = 'pipx';       Command = 'pipx';  Manager = 'pip';       Desc = 'Install Python CLI tools in isolation.' }
+    @{ Name = 'Chocolatey'; Command = 'choco'; Manager = 'bootstrap'; PackageId = 'chocolatey'; Desc = 'Package manager for Windows.' }
+    @{ Name = 'pipx';       Command = 'pipx';  Manager = 'pip';       PackageId = 'pipx';       Desc = 'Install Python CLI tools in isolation.' }
 )
 
 function Get-KnownToolsFromRegistry {
@@ -698,6 +698,7 @@ function Get-KnownToolsFromRegistry {
         foreach ($m in $regMatches) {
             $key     = $m.Groups[1].Value
             $manager = $m.Groups[2].Value
+            $id      = $m.Groups[3].Value
 
             # Skip the PSFzf module entry -- it is not a CLI tool
             if ($manager -eq 'module') { continue }
@@ -705,10 +706,11 @@ function Get-KnownToolsFromRegistry {
             # Merge with supplementary metadata
             $meta = $script:ToolMetadata[$key]
             $results += @{
-                Name    = if ($meta) { $meta.Name }    else { $key }
-                Command = if ($meta) { $meta.Command } else { $key }
-                Manager = $manager
-                Desc    = if ($meta) { $meta.Desc }    else { "$key tool." }
+                Name      = if ($meta) { $meta.Name }    else { $key }
+                Command   = if ($meta) { $meta.Command } else { $key }
+                Manager   = $manager
+                PackageId = $id
+                Desc      = if ($meta) { $meta.Desc }    else { "$key tool." }
             }
         }
     }
