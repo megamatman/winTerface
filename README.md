@@ -148,6 +148,16 @@ winTerface/
     how-to-manage-profile.md  Guide to profile health and redeployment
 ```
 
+## Verifying files
+
+SHA256 checksums for all source and data files are published in `checksums.sha256`. To verify a file before running it:
+
+```powershell
+(Get-FileHash winTerface.ps1 -Algorithm SHA256).Hash
+```
+
+Compare the output against the corresponding entry in `checksums.sha256`. Regenerate checksums before each release with `.\New-Checksums.ps1`.
+
 ## Documentation
 
 - [Key bindings reference](KEYBINDINGS.md)
