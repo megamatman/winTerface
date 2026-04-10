@@ -154,6 +154,26 @@ function Get-WingetUpdates {
 # Pipx
 # ---------------------------------------------------------------------------
 
+function Invoke-Pipx {
+    <#
+    .SYNOPSIS
+        Calls pipx with fallback to python -m pipx.
+    .DESCRIPTION
+        On some Windows configurations pipx.exe is a Python launcher script
+        rather than a native executable. Calling it with output redirection
+        fails with "StandardOutputEncoding is only supported when standard
+        output is redirected." This helper tries pipx directly first, then
+        retries via python -m pipx if the direct call throws.
+    #>
+    try {
+        return (& pipx @args)
+    }
+    catch {
+        # Fallback: launcher script failure. Use python -m pipx instead.
+        return (& python -m pipx @args)
+    }
+}
+
 function Get-PipxTools {
     <#
     .SYNOPSIS
@@ -169,7 +189,7 @@ function Get-PipxTools {
         if (-not (Get-Command pipx -ErrorAction SilentlyContinue)) { return @() }
 
         # Try JSON output first (pipx >= 1.1)
-        $raw = & pipx list --json 2>$null
+        $raw = Invoke-Pipx list --json 2>$null
         if ($LASTEXITCODE -eq 0 -and $raw) {
             $jsonText = ($raw | Out-String).Trim()
             if ($jsonText.StartsWith('{')) {
@@ -191,7 +211,7 @@ function Get-PipxTools {
         }
 
         # Fallback: parse text output
-        $raw = & pipx list 2>$null
+        $raw = Invoke-Pipx list 2>$null
         if ($LASTEXITCODE -ne 0 -or -not $raw) { return @() }
 
         $results = @()
@@ -231,7 +251,7 @@ function Get-PipxUpdateAvailable {
 
     try {
         # Installed version via pipx's own pip
-        $showOutput = & pipx runpip $Package show $Package 2>$null
+        $showOutput = Invoke-Pipx runpip $Package show $Package 2>$null
         if ($LASTEXITCODE -ne 0 -or -not $showOutput) { return $null }
 
         $installed = $showOutput |

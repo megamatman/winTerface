@@ -321,6 +321,50 @@ Describe 'Get-PipxTools' {
 
         $result.Count | Should -Be 0
     }
+
+    It 'falls back to python -m pipx when direct pipx throws' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'pipx.exe' } } -ParameterFilter { $Name -eq 'pipx' }
+        Mock pipx { throw [System.Management.Automation.RuntimeException]::new("StandardOutputEncoding error") }
+        Mock python {
+            $global:LASTEXITCODE = 0
+            return $null
+        } -ParameterFilter { $args[0] -eq '-m' -and $args[1] -eq 'pipx' }
+        $global:LASTEXITCODE = 0
+
+        # When pipx throws, Invoke-Pipx falls back to python -m pipx.
+        # Verify the fallback path is invoked.
+        $null = Get-PipxTools
+
+        Should -Invoke -CommandName python -Times 1 -Exactly:$false
+    }
+
+    It 'returns correct results via the fallback path' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'pipx.exe' } } -ParameterFilter { $Name -eq 'pipx' }
+        Mock pipx { throw [System.Management.Automation.RuntimeException]::new("StandardOutputEncoding error") }
+        Mock python {
+            $global:LASTEXITCODE = 0
+            if ($args[2] -eq 'list' -and $args[3] -eq '--json') {
+                return @'
+{
+  "venvs": {
+    "ruff": { "metadata": { "main_package": { "package_version": "0.4.0" } } },
+    "bandit": { "metadata": { "main_package": { "package_version": "1.7.8" } } }
+  }
+}
+'@
+            }
+            return $null
+        } -ParameterFilter { $args[0] -eq '-m' -and $args[1] -eq 'pipx' }
+        $global:LASTEXITCODE = 0
+
+        $result = Get-PipxTools
+
+        $names = $result | ForEach-Object { $_.Name }
+        $names | Should -Contain 'ruff'
+        $names | Should -Contain 'bandit'
+        ($result | Where-Object { $_.Name -eq 'ruff' }).CurrentVersion | Should -Be '0.4.0'
+        ($result | Where-Object { $_.Name -eq 'bandit' }).CurrentVersion | Should -Be '1.7.8'
+    }
 }
 
 # ---------------------------------------------------------------------------
