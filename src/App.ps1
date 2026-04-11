@@ -280,6 +280,7 @@ function Invoke-UpdateRunPoll {
 
     # VS Code open sentinel: stop the job, warn the user, re-enable actions
     if ($vsCodeOpen) {
+        try { Stop-Job $job -ErrorAction SilentlyContinue } catch {}
         try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
         $script:UpdateRunJob       = $null
         $script:UpdateRunStartTime = $null
@@ -606,7 +607,10 @@ function Start-WinTerface {
         foreach ($name in $jobVars) {
             $job = Get-Variable -Name $name -Scope Script -ValueOnly -ErrorAction SilentlyContinue
             if ($job) {
-                try { Stop-Job $job -ErrorAction SilentlyContinue } catch {}
+                $jobState = try { $job.State } catch { 'Failed' }
+                if ($jobState -eq 'Running') {
+                    try { Stop-Job $job -ErrorAction SilentlyContinue } catch {}
+                }
                 try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
                 Set-Variable -Name $name -Value $null -Scope Script
             }

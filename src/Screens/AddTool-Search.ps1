@@ -177,28 +177,31 @@ function Update-SearchJobStatus {
     $allDone = $true
 
     if ($script:ChocoSearchJob) {
-        if ($script:ChocoSearchJob.State -ne 'Running') {
+        $jobState = try { $script:ChocoSearchJob.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
             try { $script:ChocoSearchResults = @(Receive-Job $script:ChocoSearchJob -ErrorAction SilentlyContinue) 6>$null }
             catch { $script:ChocoSearchResults = @() }
-            try { Remove-Job $script:ChocoSearchJob -Force } catch {}
+            try { Remove-Job $script:ChocoSearchJob -Force -ErrorAction SilentlyContinue } catch {}
             $script:ChocoSearchJob = $null
         } else { $allDone = $false }
     }
 
     if ($script:WingetSearchJob) {
-        if ($script:WingetSearchJob.State -ne 'Running') {
+        $jobState = try { $script:WingetSearchJob.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
             try { $script:WingetSearchResults = @(Receive-Job $script:WingetSearchJob -ErrorAction SilentlyContinue) 6>$null }
             catch { $script:WingetSearchResults = @() }
-            try { Remove-Job $script:WingetSearchJob -Force } catch {}
+            try { Remove-Job $script:WingetSearchJob -Force -ErrorAction SilentlyContinue } catch {}
             $script:WingetSearchJob = $null
         } else { $allDone = $false }
     }
 
     if ($script:PyPISearchJob) {
-        if ($script:PyPISearchJob.State -ne 'Running') {
+        $jobState = try { $script:PyPISearchJob.State } catch { 'Failed' }
+        if ($jobState -ne 'Running') {
             try { $script:PyPISearchResults = @(Receive-Job $script:PyPISearchJob -ErrorAction SilentlyContinue) 6>$null }
             catch { $script:PyPISearchResults = @() }
-            try { Remove-Job $script:PyPISearchJob -Force } catch {}
+            try { Remove-Job $script:PyPISearchJob -Force -ErrorAction SilentlyContinue } catch {}
             $script:PyPISearchJob = $null
         } else { $allDone = $false }
     }
@@ -251,7 +254,10 @@ function Invoke-DescriptionFetch {
 
     # Cancel any in-flight description fetch
     if ($script:DescriptionJob) {
-        try { Stop-Job $script:DescriptionJob -ErrorAction SilentlyContinue } catch {}
+        $jobState = try { $script:DescriptionJob.State } catch { 'Failed' }
+        if ($jobState -eq 'Running') {
+            try { Stop-Job $script:DescriptionJob -ErrorAction SilentlyContinue } catch {}
+        }
         try { Remove-Job $script:DescriptionJob -Force -ErrorAction SilentlyContinue } catch {}
         $script:DescriptionJob = $null
     }

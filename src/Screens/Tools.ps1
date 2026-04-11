@@ -110,8 +110,13 @@ function Add-ToolsListView {
         # Get-ToolInventory's guard doesn't bail out.
         if ($key -eq [Terminal.Gui.Key]::F5) {
             if ($script:ToolInventoryJob) {
-                try { Stop-Job $script:ToolInventoryJob -ErrorAction SilentlyContinue } catch {}
-                try { Remove-Job $script:ToolInventoryJob -Force -ErrorAction SilentlyContinue } catch {}
+                $jobState = try { $script:ToolInventoryJob.State } catch { 'Failed' }
+                if ($jobState -ne 'Running') {
+                    try { Remove-Job $script:ToolInventoryJob -Force -ErrorAction SilentlyContinue } catch {}
+                } else {
+                    try { Stop-Job $script:ToolInventoryJob -ErrorAction SilentlyContinue } catch {}
+                    try { Remove-Job $script:ToolInventoryJob -Force -ErrorAction SilentlyContinue } catch {}
+                }
                 $script:ToolInventoryJob = $null
             }
             $script:ToolInventoryData = $null
