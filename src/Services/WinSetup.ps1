@@ -298,7 +298,7 @@ function Invoke-WinSetupUpdate {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            & $scriptPath -NoWait
+            & $scriptPath -NoWait -JobMode
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
@@ -368,7 +368,7 @@ function Start-NextPackageUpdate {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            & $scriptPath -Package $packageName -NoWait
+            & $scriptPath -Package $packageName -NoWait -JobMode
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }

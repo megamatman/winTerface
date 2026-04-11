@@ -291,3 +291,31 @@ Describe 'Job output hygiene' {
         }
     }
 }
+
+Describe 'JobMode pass-through' {
+    BeforeAll {
+        $script:WinSetupSrc = Get-Content "$PSScriptRoot\..\src\Services\WinSetup.ps1" -Raw
+        $script:ToolsSrc    = Get-Content "$PSScriptRoot\..\src\Screens\Tools.ps1" -Raw
+        $script:AddToolSrc  = Get-Content "$PSScriptRoot\..\src\Screens\AddTool.ps1" -Raw
+    }
+
+    It 'full update job passes -NoWait and -JobMode' {
+        $script:WinSetupSrc | Should -Match '\$scriptPath\s+-NoWait\s+-JobMode'
+    }
+
+    It 'per-package update job passes -NoWait and -JobMode' {
+        $script:WinSetupSrc | Should -Match '-Package\s+\$packageName\s+-NoWait\s+-JobMode'
+    }
+
+    It 'tool install job passes -JobMode to Setup-DevEnvironment.ps1' {
+        $script:ToolsSrc | Should -Match '-InstallTool\s+\$toolName\s+-JobMode'
+    }
+
+    It 'post-wizard install job passes -JobMode to Setup-DevEnvironment.ps1' {
+        $script:AddToolSrc | Should -Match '-InstallTool\s+\$name\s+-JobMode'
+    }
+
+    It 'tool update job passes -JobMode to Update-DevEnvironment.ps1' {
+        $script:ToolsSrc | Should -Match '-Package\s+\$toolName\s+-JobMode'
+    }
+}
