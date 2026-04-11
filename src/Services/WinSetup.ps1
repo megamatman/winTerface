@@ -499,7 +499,13 @@ function Get-ProfileDriftStatus {
     # Strip known managed additions before comparing
     $deployedRaw = (Remove-WinTerfaceLauncherBlock -Content $deployedRaw).TrimEnd()
 
-    if ($deployedRaw -eq $sourceRaw) {
+    # Normalise line endings before comparison. Windows Set-Content writes CRLF;
+    # git may checkout LF depending on core.autocrlf. The diff output below
+    # already splits on \r?\n so it is unaffected by this normalisation.
+    $deployedNorm = $deployedRaw -replace '\r\n', "`n"
+    $sourceNorm   = $sourceRaw   -replace '\r\n', "`n"
+
+    if ($deployedNorm -eq $sourceNorm) {
         return @{ Status = 'InSync'; DiffText = '' }
     }
 

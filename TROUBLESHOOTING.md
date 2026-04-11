@@ -143,6 +143,12 @@ If the error persists, raise an issue on the winTerface repository with the exac
 ```
 winTerface shows a reminder dialog after successful redeploy.
 
+### Profile screen shows drift on a fresh Windows installation even after redeploying
+
+**Cause:** Windows writes CRLF line endings by default. If the winSetup source uses LF line endings, a strict byte comparison reports drift. This is resolved automatically by the line ending normalisation in the drift check.
+
+**Fix:** If drift persists after redeploying, press R to redeploy again. The redeployed file will use consistent line endings.
+
 ### Drift view shows differences but all sections pass health checks
 
 **Cause:** Health checks verify section presence via pattern matching. Drift detection compares full file content. Minor whitespace or comment changes cause drift without failing health checks.

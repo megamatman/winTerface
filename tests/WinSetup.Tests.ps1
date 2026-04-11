@@ -376,7 +376,7 @@ Describe 'Get-ProfileDriftStatus line ending handling' {
         $script:CRLFContent = "# profile content`r`nSet-Alias lg lazygit`r`n\$env:WINSETUP = 'C:\ws'`r`n"
     }
 
-    It 'detects whether CRLF vs LF mismatch causes false-positive drift' {
+    It 'reports InSync when CRLF vs LF line endings differ but content matches' {
         $dir = Join-Path $TestDrive 'drift-crlf'
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
 
@@ -393,13 +393,9 @@ Describe 'Get-ProfileDriftStatus line ending handling' {
         $global:PROFILE = $deployedPath
         try {
             $result = Get-ProfileDriftStatus
-
-            # The function uses strict string comparison ($deployedRaw -eq $sourceRaw)
-            # after TrimEnd(). It does NOT normalise line endings before comparing.
-            # LF content and CRLF content are different strings, so drift is reported.
-            # This is a known false positive when git checkout uses LF and the
-            # deployment used CRLF (or vice versa).
-            $result.Status | Should -Be 'Drifted'
+            # Line endings are normalised before comparison. Identical content
+            # with different line endings reports InSync.
+            $result.Status | Should -Be 'InSync'
         }
         finally {
             $global:PROFILE = $savedProfile
@@ -423,6 +419,31 @@ Describe 'Get-ProfileDriftStatus line ending handling' {
         try {
             $result = Get-ProfileDriftStatus
             $result.Status | Should -Be 'InSync'
+        }
+        finally {
+            $global:PROFILE = $savedProfile
+        }
+    }
+    It 'reports Drifted for genuine content differences even with normalised line endings' {
+        $dir = Join-Path $TestDrive 'drift-genuine-crlf'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+
+        # Source: LF, with original content
+        $sourceFile = Join-Path $dir 'profile.ps1'
+        [System.IO.File]::WriteAllText($sourceFile, $script:LFContent)
+
+        # Deployed: CRLF, with an extra line of real content
+        $driftedContent = $script:CRLFContent + "# user added this`r`n"
+        $deployedPath = Join-Path $TestDrive 'profile-genuine-crlf-drift.ps1'
+        [System.IO.File]::WriteAllText($deployedPath, $driftedContent)
+
+        $env:WINSETUP = $dir
+        $savedProfile = $global:PROFILE
+        $global:PROFILE = $deployedPath
+        try {
+            $result = Get-ProfileDriftStatus
+            $result.Status | Should -Be 'Drifted' -Because 'the extra line is genuine drift'
+            $result.DiffText | Should -Match 'user added this'
         }
         finally {
             $global:PROFILE = $savedProfile
