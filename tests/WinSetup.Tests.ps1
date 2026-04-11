@@ -232,6 +232,67 @@ Set-Alias wti Invoke-WinTerface
     }
 }
 
+Describe 'Get-ProfileDriftStatus line ending handling' {
+    BeforeAll {
+        # Identical logical content, differing only in line endings.
+        $script:LFContent   = "# profile content`nSet-Alias lg lazygit`n\$env:WINSETUP = 'C:\ws'`n"
+        $script:CRLFContent = "# profile content`r`nSet-Alias lg lazygit`r`n\$env:WINSETUP = 'C:\ws'`r`n"
+    }
+
+    It 'detects whether CRLF vs LF mismatch causes false-positive drift' {
+        $dir = Join-Path $TestDrive 'drift-crlf'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+
+        # Source file: LF line endings (as git might checkout on some configs)
+        $sourceFile = Join-Path $dir 'profile.ps1'
+        [System.IO.File]::WriteAllText($sourceFile, $script:LFContent)
+
+        # Deployed file: CRLF line endings (as Set-Content writes on Windows)
+        $deployedPath = Join-Path $TestDrive 'profile-crlf-test.ps1'
+        [System.IO.File]::WriteAllText($deployedPath, $script:CRLFContent)
+
+        $env:WINSETUP = $dir
+        $savedProfile = $global:PROFILE
+        $global:PROFILE = $deployedPath
+        try {
+            $result = Get-ProfileDriftStatus
+
+            # The function uses strict string comparison ($deployedRaw -eq $sourceRaw)
+            # after TrimEnd(). It does NOT normalise line endings before comparing.
+            # LF content and CRLF content are different strings, so drift is reported.
+            # This is a known false positive when git checkout uses LF and the
+            # deployment used CRLF (or vice versa).
+            $result.Status | Should -Be 'Drifted'
+        }
+        finally {
+            $global:PROFILE = $savedProfile
+        }
+    }
+
+    It 'reports InSync when both files use the same line endings' {
+        $dir = Join-Path $TestDrive 'drift-same-endings'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+
+        # Both files: LF
+        $sourceFile = Join-Path $dir 'profile.ps1'
+        [System.IO.File]::WriteAllText($sourceFile, $script:LFContent)
+
+        $deployedPath = Join-Path $TestDrive 'profile-same-endings.ps1'
+        [System.IO.File]::WriteAllText($deployedPath, $script:LFContent)
+
+        $env:WINSETUP = $dir
+        $savedProfile = $global:PROFILE
+        $global:PROFILE = $deployedPath
+        try {
+            $result = Get-ProfileDriftStatus
+            $result.Status | Should -Be 'InSync'
+        }
+        finally {
+            $global:PROFILE = $savedProfile
+        }
+    }
+}
+
 Describe 'UI polish' {
     BeforeAll {
         $script:UpdatesSource = Get-Content "$PSScriptRoot\..\src\Screens\Updates.ps1" -Raw
