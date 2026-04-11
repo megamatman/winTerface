@@ -6,7 +6,9 @@
 
 Terminal UI for managing a Windows 11 development environment configured by [winSetup](https://github.com/megamatman/winSetup). Keyboard-driven, pane-based, with slash commands and background job polling. Replaces manual config file editing, update checking, and tool management with a single interactive console.
 
-![winTerface home screen](docs/winterface-home-screen.gif)
+<p align="center">
+  <img src="docs/winterface-home-screen.gif" alt="winTerface home screen" width="100%" />
+</p>
 
 ## Quick start
 
