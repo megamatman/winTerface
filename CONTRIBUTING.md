@@ -14,14 +14,15 @@ must be followed to avoid crashes:
   (`pwsh -NoProfile -NonInteractive -Command`) to prevent bleed.
   See the critical constraints in CLAUDE.md for the pattern.
 
-- **Never call Switch-Screen from a key event handler.**
-  This destroys the view that owns the event mid-dispatch. Trigger
-  screen changes from the timer poll instead.
-  *Exception:* The global KeyPress handler on `$top` in `Navigation.ps1`
-  calls `Switch-Screen` directly for the Escape-to-Home navigation.
-  This is safe because `$top` is the application root, not a child view
-  in the content area being replaced. The handler is not destroyed
-  mid-dispatch.
+- **Never execute code after Switch-Screen inside an event handler.**
+  `Switch-Screen` calls `RemoveAll()` on the content container, which
+  destroys all child views. Code that runs after the call and accesses
+  a view from the replaced screen will throw on a disposed object.
+  Safe patterns: `OpenSelectedItem` handlers and `KeyPress` handlers
+  where `Switch-Screen` is the final action before `return`. The
+  global `KeyPress` handler on `$top` in `Navigation.ps1` is also safe
+  because `$top` is the application root, not a child view. See the
+  "Switch-Screen safety" section below for the full reference.
 
 - **Never use nested Application.Run() for modal dialogs during active
   background jobs without guarding screen rebuilds.** The timer
@@ -122,21 +123,26 @@ the timer) may omit the guard, but adding it is always safe.
 
 `Switch-Screen` calls `$script:Layout.Content.RemoveAll()` then
 `Build-*Screen`. This destroys all child views of the content area.
+The risk is code that runs *after* the call and accesses a view that
+was just destroyed. The navigation itself is safe in all contexts
+below.
 
 **Safe to call from:**
 - The timer callback (`Invoke-BackgroundPoll`), the standard path.
-- `OpenSelectedItem` handlers. The event fires after selection
-  completes, and the handler runs on the main thread. Works in
-  Terminal.Gui v1 because `RemoveAll()` targets the content container,
-  not the view that owns the event.
-- Named functions called from key handlers (e.g. `Step-WizardBack`).
+- `OpenSelectedItem` handlers where `Switch-Screen` is the last
+  statement. The event fires after selection completes, and no view
+  access follows. Used throughout the AddTool wizard and Home menu.
+- `KeyPress` handlers where `Switch-Screen` is followed only by
+  `$e.Handled = $true; return`. No disposed view is accessed. Used
+  in Tools.ps1, Config.ps1, Profile.ps1, and the guided wizard.
+- Named functions called from key handlers (e.g. `Step-WizardBack`),
+  provided Switch-Screen is the final action before return.
+- The global `KeyPress` handler on `$top` in Navigation.ps1, which
+  is safe because `$top` is the application root, not a child view.
 
-**Documented risk:** Calling `Switch-Screen` from inside a `KeyPress`
-handler destroys the view mid-dispatch. Terminal.Gui v1 tolerates this
-in practice because the content area is a separate container, but it
-violates the library's design contract. The Updates screen explicitly
-avoids this for F5 (see comment at `Updates.ps1`). Other screens use
-the pattern; this is a known inconsistency, not a bug to fix.
+**Unsafe pattern:** Any code after `Switch-Screen` that reads or
+writes a view variable from the previous screen. The view has been
+removed by `RemoveAll()` and accessing it throws.
 
 ## Background poll architecture
 
