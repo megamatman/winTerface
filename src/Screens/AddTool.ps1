@@ -37,9 +37,9 @@ $script:_DescriptionResult = $null
 $script:GuidedSteps = @(
     @{ Title = 'Display name';               Desc = 'A friendly name for the tool (e.g. ripgrep, lazygit).';                                            Key = 'DisplayName';    Type = 'text';   Required = $true;  Next = 'GuidedManager';   AllowedPattern = '^[a-zA-Z0-9\-\._\s]+$' }
     @{ Title = 'Package manager';            Desc = 'Which package manager installs this tool?';                                                         Key = 'PackageManager'; Type = 'select'; Required = $true;  Next = 'GuidedPackageId'; Options = @('choco','winget','pipx','manual') }
-    @{ Title = 'Package ID';                 Desc = 'The exact package ID used by the package manager (e.g. BurntSushi.ripgrep.MSVC for winget).';      Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\.\_\/]+$' }
-    @{ Title = 'Verify command';             Desc = 'The command used to verify installation (e.g. rg --version).';                                      Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\.\_]+$' }
-    @{ Title = 'Profile alias (optional)';   Desc = 'Optional. An alias or config line to add to your PowerShell profile (e.g. Set-Alias rg ripgrep).'; Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-\_\s\$\=\.\(\)''\"\\:,\|]+$' }
+    @{ Title = 'Package ID';                 Desc = 'The exact package ID used by the package manager (e.g. BurntSushi.ripgrep.MSVC for winget).';      Key = 'PackageId';      Type = 'text';   Required = $true;  Next = 'GuidedVerify';    AllowedPattern = '^[a-zA-Z0-9\-\._\/]+$' }
+    @{ Title = 'Verify command';             Desc = 'The command used to verify installation (e.g. rg --version).';                                      Key = 'VerifyCommand';  Type = 'text';   Required = $true;  Next = 'GuidedAlias';     AllowedPattern = '^[a-zA-Z0-9\-\._]+$' }
+    @{ Title = 'Profile alias (optional)';   Desc = 'Optional. An alias or config line to add to your PowerShell profile (e.g. Set-Alias rg ripgrep).'; Key = 'ProfileAlias';   Type = 'text';   Required = $false; Next = 'Confirmation';    AllowedPattern = '^[a-zA-Z0-9\-_\s\$\=\.\(\)''\"\\:,\|]+$' }
 )
 
 # ---------------------------------------------------------------------------

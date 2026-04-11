@@ -184,13 +184,7 @@ Describe 'AllowedPattern validation' {
             if ($content -match "Key\s*=\s*'$key'[^}]*AllowedPattern\s*=\s*'((?:[^']|'')+)'") {
                 $raw = $Matches[1]
                 # Unescape PowerShell single-quoted string: '' becomes '
-                $raw = $raw -replace "''", "'"
-                # The source patterns use \_ inside character classes. \_ is not
-                # a valid .NET regex escape in .NET 7+ and throws
-                # RegexParseException. Inside a character class, _ has no special
-                # meaning and needs no backslash. Normalise to test the intended
-                # semantics. The source patterns should be fixed separately.
-                $script:Patterns[$key] = $raw -replace '\\_', '_'
+                $script:Patterns[$key] = $raw -replace "''", "'"
             }
         }
     }
