@@ -232,6 +232,143 @@ Set-Alias wti Invoke-WinTerface
     }
 }
 
+Describe 'Remove-WinTerfaceLauncherBlock' {
+    BeforeAll {
+        $script:ProfileBase = "# profile content`nSet-Alias lg lazygit`n"
+        $script:StandardBlock = @"
+
+# winTerface launcher
+function Invoke-WinTerface {
+    & "`$env:WINTERFACE\winTerface.ps1" @args
+}
+Set-Alias wti Invoke-WinTerface
+"@
+    }
+
+    It 'strips the standard launcher block from profile content' {
+        $content = $script:ProfileBase + $script:StandardBlock
+        $result = Remove-WinTerfaceLauncherBlock -Content $content
+        $result.Trim() | Should -Be $script:ProfileBase.Trim()
+        $result | Should -Not -Match 'winTerface launcher'
+        $result | Should -Not -Match 'Invoke-WinTerface'
+    }
+
+    It 'returns content unchanged when no launcher block is present' {
+        $result = Remove-WinTerfaceLauncherBlock -Content $script:ProfileBase
+        $result | Should -Be $script:ProfileBase
+    }
+
+    It 'returns empty string unchanged' {
+        $result = Remove-WinTerfaceLauncherBlock -Content ''
+        $result | Should -Be ''
+    }
+
+    It 'handles extra blank lines before the launcher block' {
+        $content = $script:ProfileBase + "`n`n`n" + $script:StandardBlock
+        $result = Remove-WinTerfaceLauncherBlock -Content $content
+        $result | Should -Not -Match 'winTerface launcher'
+        $result.Trim() | Should -Be $script:ProfileBase.Trim()
+    }
+
+    It 'handles block with extra indentation inside the function body' {
+        $indentedBlock = @"
+
+# winTerface launcher
+function Invoke-WinTerface {
+        & "`$env:WINTERFACE\winTerface.ps1" @args
+}
+Set-Alias wti Invoke-WinTerface
+"@
+        $content = $script:ProfileBase + $indentedBlock
+        $result = Remove-WinTerfaceLauncherBlock -Content $content
+        $result | Should -Not -Match 'winTerface launcher'
+    }
+
+    It 'fails to strip block when an extra comment line is added inside' {
+        # The regex uses [\s\S]*? (lazy) between the header and the alias
+        # line. An extra comment does not break the match because [\s\S]*?
+        # matches any content including newlines. This test documents that
+        # extra lines INSIDE the block are handled correctly.
+        $modifiedBlock = @"
+
+# winTerface launcher
+# custom comment added by user
+function Invoke-WinTerface {
+    & "`$env:WINTERFACE\winTerface.ps1" @args
+}
+Set-Alias wti Invoke-WinTerface
+"@
+        $content = $script:ProfileBase + $modifiedBlock
+        $result = Remove-WinTerfaceLauncherBlock -Content $content
+        $result | Should -Not -Match 'winTerface launcher'
+        $result | Should -Not -Match 'custom comment added'
+    }
+
+    It 'fails to strip block when the alias is renamed' {
+        # If the user renames the alias from "wti" to something else, the
+        # end anchor (^Set-Alias wti Invoke-WinTerface) no longer matches.
+        # The block remains in the content, causing false-positive drift.
+        $renamedBlock = @"
+
+# winTerface launcher
+function Invoke-WinTerface {
+    & "`$env:WINTERFACE\winTerface.ps1" @args
+}
+Set-Alias wtf Invoke-WinTerface
+"@
+        $content = $script:ProfileBase + $renamedBlock
+        $result = Remove-WinTerfaceLauncherBlock -Content $content
+        # The block is NOT stripped because the end anchor does not match
+        $result | Should -Match 'winTerface launcher'
+        $result | Should -Match 'Set-Alias wtf'
+    }
+
+    It 'fails to strip block when the header comment is changed' {
+        $changedHeader = @"
+
+# winTerface launcher v2
+function Invoke-WinTerface {
+    & "`$env:WINTERFACE\winTerface.ps1" @args
+}
+Set-Alias wti Invoke-WinTerface
+"@
+        $content = $script:ProfileBase + $changedHeader
+        $result = Remove-WinTerfaceLauncherBlock -Content $content
+        # The block is NOT stripped because the start anchor does not match
+        $result | Should -Match 'winTerface launcher v2'
+    }
+
+    It 'renamed alias causes false-positive drift in Get-ProfileDriftStatus' {
+        # Confirm the downstream impact: when the block cannot be stripped,
+        # drift detection sees extra content and reports Drifted.
+        $dir = Join-Path $TestDrive 'drift-renamed-alias'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        Set-Content -Path (Join-Path $dir 'profile.ps1') -Value $script:ProfileBase -NoNewline
+        $env:WINSETUP = $dir
+
+        $renamedBlock = @"
+
+# winTerface launcher
+function Invoke-WinTerface {
+    & "`$env:WINTERFACE\winTerface.ps1" @args
+}
+Set-Alias wtf Invoke-WinTerface
+"@
+        $deployedPath = Join-Path $TestDrive 'profile-renamed-alias.ps1'
+        Set-Content -Path $deployedPath -Value ($script:ProfileBase + $renamedBlock) -NoNewline
+
+        $savedProfile = $global:PROFILE
+        $global:PROFILE = $deployedPath
+        try {
+            $result = Get-ProfileDriftStatus
+            $result.Status | Should -Be 'Drifted' -Because 'the unstripped block is seen as drift'
+        }
+        finally {
+            $global:PROFILE = $savedProfile
+        }
+    }
+}
+
 Describe 'Get-ProfileDriftStatus line ending handling' {
     BeforeAll {
         # Identical logical content, differing only in line endings.
