@@ -67,17 +67,18 @@ Released: 2026-04-10
 
 ## Tests
 
-126 Pester v5 tests across 7 files (up from 25 at v1.0.0):
+161 Pester v5 tests across 8 files (up from 107 at v1.0.0):
 
 | File | Tests | Coverage |
 |------|------:|---------|
 | ToolWriter.Tests.ps1 | 25 | Code generation for all 4 managers, quote injection, parser validation |
-| PackageManager.Tests.ps1 | 29 | choco/winget/pipx output parsing, search functions, KnownTools filter, pipx fallback |
+| PackageManager.Tests.ps1 | 31 | choco/winget/pipx output parsing, search functions, KnownTools filter, version filter, pipx fallback |
 | Commands.Tests.ps1 | 24 | Fuzzy matching, scoring, tab completion cycling, suggestions |
 | Config.Tests.ps1 | 15 | Interval validation boundaries, path validation, read/write round-trip |
 | UpdateCache.Tests.ps1 | 12 | ISO 8601 date round-tripping, locale independence, staleness, structure |
-| WinSetup.Tests.ps1 | 10 | KnownTools registry parsing, metadata merge, fallback behaviour, profile drift with launcher block |
+| WinSetup.Tests.ps1 | 28 | KnownTools registry parsing, metadata merge, fallback behaviour, profile drift with launcher block, VSCODE_OPEN sentinel handling, subprocess isolation, UI polish, job hygiene |
 | New-Checksums.Tests.ps1 | 11 | Output format, entry count, hash verification, exclusions |
+| Bootstrap.Tests.ps1 | 15 | Pre-flight checks, winSetup dependency, security notice, structure |
 
 ---
 
