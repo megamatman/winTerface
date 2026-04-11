@@ -1,3 +1,56 @@
+# Release Notes: v1.2.0
+
+Released: 2026-04-11
+
+## Fixes
+
+- `UpdateFlowActive` guards added to `Show-HelpOverlay`, `Show-ConfigMessage`,
+  and the `Invoke-WizardConfirm` error dialog. Prevents the background poll
+  timer from tearing down active modal dialogs via `Switch-Screen`.
+- Job State access and `Remove-Job` calls guarded against disposed jobs in
+  the search poll loop, VS Code sentinel path, F5 refresh cleanup,
+  description job cancel, and the shutdown finally block.
+- Invalid regex escape (`\_`) corrected in all four `AllowedPattern`
+  definitions. Was a latent `RegexParseException` in .NET 7+. Inside a
+  character class, underscore requires no backslash.
+- `Get-ModifiedSetupContent` and `Get-ModifiedUpdateContent` now throw on
+  missing anchors rather than returning partial content silently. Error
+  surfaces to the wizard user via the existing error dialog.
+- Profile drift detection normalises line endings before comparison.
+  Eliminates false positives on fresh Windows installations where
+  `Set-Content` writes CRLF and the winSetup source uses LF.
+- `Get-WingetUpdates` uses case-insensitive header matching, handling
+  winget versions that emit "ID" or "AVAILABLE". When headers cannot be
+  located, the function surfaces a parse failure with diagnostic output
+  rather than returning an empty result silently.
+
+## Documentation
+
+- `Switch-Screen` constraint clarified in both `CONTRIBUTING.md` and the
+  developer context file. The actual risk is post-call access to a
+  disposed view, not navigation itself. Safe patterns documented.
+- Stale test counts corrected in the v1.1.0 section of `RELEASE-NOTES.md`.
+- `TROUBLESHOOTING.md` extended with entries for anchor-not-found errors
+  in the Add Tool wizard, CRLF drift on fresh installs, and non-English
+  locale parse failures on the Updates screen.
+
+## Tests
+
+251 Pester v5 tests across 8 files (up from 161 at v1.1.0):
+
+| File | Tests | Coverage |
+|------|------:|---------|
+| ToolWriter.Tests.ps1 | 91 | Code generation, quote injection, parser validation, AllowedPattern for all 4 fields, consumer regex round-trip, Get-ModifiedSetupContent and Get-ModifiedUpdateContent anchor validation |
+| PackageManager.Tests.ps1 | 36 | choco/winget/pipx output parsing, search functions, KnownTools filter, version filter, pipx fallback, locale header parsing, case-insensitive matching |
+| Commands.Tests.ps1 | 24 | Fuzzy matching, scoring, tab completion cycling, suggestions |
+| Config.Tests.ps1 | 15 | Interval validation boundaries, path validation, read/write round-trip |
+| UpdateCache.Tests.ps1 | 12 | ISO 8601 date round-tripping, locale independence, staleness, structure |
+| WinSetup.Tests.ps1 | 47 | KnownTools registry parsing, metadata merge, fallback, drift (CRLF/LF), launcher block removal variants, VSCODE_OPEN sentinel, subprocess isolation path escaping, UI polish, job hygiene |
+| New-Checksums.Tests.ps1 | 11 | Output format, entry count, hash verification, exclusions |
+| Bootstrap.Tests.ps1 | 15 | Pre-flight checks, winSetup dependency, security notice, structure |
+
+---
+
 # Release Notes: v1.1.0
 
 Released: 2026-04-10
