@@ -325,6 +325,76 @@ Describe 'Subprocess isolation' {
         $script:WinSetupSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*PROFILE"
     }
 
+    # Path escaping and invocation form tests.
+    # The escaping logic ($escaped = $scriptPath -replace "'", "''") is inline
+    # in each Start-Job scriptblock, not in a separate function. Full subprocess
+    # behaviour (Write-Host isolation, Receive-Job capture) requires integration
+    # testing with Terminal.Gui which is beyond unit test scope. The tests below
+    # verify the escaping correctness and complete invocation form.
+
+    It 'path escape pattern doubles single quotes' {
+        # Replicate the exact escape logic used in all job scriptblocks
+        $path = "C:\Users\O'Brien\winSetup\Update-DevEnvironment.ps1"
+        $escaped = $path -replace "'", "''"
+        $escaped | Should -Be "C:\Users\O''Brien\winSetup\Update-DevEnvironment.ps1"
+    }
+
+    It 'escaped path produces a valid pwsh -Command string' {
+        $path = "C:\Users\O'Brien\test.ps1"
+        $escaped = $path -replace "'", "''"
+        $cmd = "& '$escaped' -NoWait -JobMode"
+        # The command string should have balanced quotes
+        ($cmd.ToCharArray() | Where-Object { $_ -eq "'" }).Count % 2 | Should -Be 0
+    }
+
+    It 'path with no special characters passes through unchanged' {
+        $path = 'C:\Users\matt\winSetup\Update-DevEnvironment.ps1'
+        $escaped = $path -replace "'", "''"
+        $escaped | Should -Be $path
+    }
+
+    It 'escaped path round-trips through pwsh -Command correctly' {
+        # Spawn a real subprocess to verify the escaped path arrives intact
+        $path = "C:\test\O'Reilly\script.ps1"
+        $escaped = $path -replace "'", "''"
+        $result = pwsh -NoProfile -NonInteractive -Command "Write-Output '$escaped'"
+        $result | Should -Be $path
+    }
+
+    It 'every subprocess job block uses the escape-then-invoke pattern' {
+        # Verify each Start-Job scriptblock that invokes pwsh contains both
+        # the escape assignment and uses $escaped in the command string.
+        # Job blocks that invoke tools directly (e.g. tool inventory scan)
+        # do not need subprocess isolation and are excluded.
+        $allSrc = @($script:WinSetupSrc, $script:ToolsSrc, $script:AddToolSrc)
+        foreach ($src in $allSrc) {
+            $jobBlocks = [regex]::Matches($src, '(?ms)Start-Job\s+-ScriptBlock\s*\{(.+?)\}\s*-ArgumentList')
+            foreach ($block in $jobBlocks) {
+                $body = $block.Groups[1].Value
+                if ($body -notmatch 'pwsh') { continue }
+                $body | Should -Match '\$escaped\s*=\s*\$\w+\s*-replace\s*[''"]' -Because "subprocess job block should escape the path"
+                $body | Should -Match 'pwsh.*\$escaped' -Because "subprocess job block should use escaped path in pwsh command"
+            }
+        }
+    }
+
+    It 'full update invocation includes 2>&1 and Write-Output re-emission' {
+        $script:WinSetupSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*2>&1"
+        $script:WinSetupSrc | Should -Match 'ForEach-Object\s*\{\s*Write-Output'
+    }
+
+    It 'profile redeploy escapes both script path and profile path' {
+        # The profile redeploy job escapes two paths: $scriptPath and $prof
+        $redeployBlock = [regex]::Match(
+            $script:WinSetupSrc,
+            '(?ms)ProfileRedeployJob\s*=\s*Start-Job\s+-ScriptBlock\s*\{(.+?)\}\s*-ArgumentList'
+        )
+        $redeployBlock.Success | Should -BeTrue
+        $body = $redeployBlock.Groups[1].Value
+        $body | Should -Match '\$escaped\s*=\s*\$scriptPath\s*-replace'
+        $body | Should -Match '\$escapedProf\s*=\s*\$prof\s*-replace'
+    }
+
     It 'no direct & $script invocations of winSetup scripts remain in job scriptblocks' {
         # Check that no Start-Job scriptblock directly invokes a winSetup script
         # via & $scriptPath or & $setupScript without pwsh subprocess
