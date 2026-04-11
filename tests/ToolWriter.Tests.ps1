@@ -13,7 +13,7 @@ Describe 'New-InstallFunction' {
 
     It 'generates valid PowerShell for winget manager' {
         $result = New-InstallFunction -DisplayName 'fzf' -PackageManager 'winget' -PackageId 'junegunn.fzf' -VerifyCommand 'fzf'
-        $result | Should -Match "winget install 'junegunn.fzf'"
+        $result | Should -Match "winget install --id 'junegunn.fzf' --exact --silent --disable-interactivity"
         $result | Should -Match '--accept-package-agreements'
     }
 

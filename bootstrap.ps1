@@ -120,7 +120,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         exit 1
     }
 
-    & winget install Git.Git --silent --accept-package-agreements --accept-source-agreements
+    & winget install --id Git.Git --exact --silent --disable-interactivity --accept-package-agreements --accept-source-agreements
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  winget install Git.Git failed (exit code $LASTEXITCODE)." -ForegroundColor Red
         Write-Host "  Install git manually: https://git-scm.com/downloads/win" -ForegroundColor Yellow

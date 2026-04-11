@@ -80,7 +80,7 @@ function New-InstallFunction {
 
     $installCmd = switch ($PackageManager) {
         'choco'  { "choco install '$pid2' -y" }
-        'winget' { "winget install '$pid2' --silent --accept-package-agreements --accept-source-agreements" }
+        'winget' { "winget install --id '$pid2' --exact --silent --disable-interactivity --accept-package-agreements --accept-source-agreements" }
         'pipx'   { "pipx install '$pid2'" }
         'manual' { $null }
     }
