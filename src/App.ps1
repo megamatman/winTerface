@@ -442,7 +442,7 @@ function Invoke-InventoryPoll {
         if ($script:CurrentScreen -eq 'Config' -and $script:ConfigSectionIndex -eq 2) {
             Update-ConfigDetail -Index 2
         }
-        elseif ($script:CurrentScreen -eq 'Tools') {
+        elseif ($script:CurrentScreen -eq 'Tools' -and -not $script:UpdateFlowActive) {
             Switch-Screen -ScreenName 'Tools'
         }
     }

@@ -361,7 +361,7 @@ function Invoke-WizardConfirm {
 
         $script:UpdateFlowActive = $true
         try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-        $script:UpdateFlowActive = $false
+        finally { $script:UpdateFlowActive = $false }
 
         Reset-WizardState
 

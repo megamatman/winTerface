@@ -346,7 +346,7 @@ function Invoke-ProfileRedeployAction {
 
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 
     if (-not $script:_RedeployConfirmed) { return }
 
@@ -405,7 +405,7 @@ function Show-DriftView {
     $dialog.Add($tv)
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 }
 
 function Invoke-ProfileCompare {
@@ -452,7 +452,7 @@ function Show-OpenFileDialog {
     $optList.SetFocus()
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 
     $source   = Join-Path $env:WINSETUP 'profile.ps1'
     $deployed = $PROFILE
@@ -498,7 +498,7 @@ function Show-ProfileReloadReminder {
 
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 }
 
 function Show-VSCodeNotFoundDialog {
@@ -514,5 +514,5 @@ function Show-VSCodeNotFoundDialog {
     $dialog.Add($lbl)
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 }

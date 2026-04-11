@@ -422,7 +422,7 @@ function Invoke-EditWinSetupPath {
     # Blocks screen rebuilds during modal dialog (see CONTRIBUTING.md)
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 
     if (-not $script:_PathConfirmed) { return }
 
@@ -472,7 +472,7 @@ function Invoke-ClearCache {
 
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 
     if ($script:_ClearConfirmed) {
         Clear-UpdateCacheFile
@@ -531,7 +531,7 @@ function Show-ConfigEditDialog {
     $tf.SetFocus()
     $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
-    $script:UpdateFlowActive = $false
+    finally { $script:UpdateFlowActive = $false }
 
     return $script:_EditResult
 }
