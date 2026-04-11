@@ -111,6 +111,87 @@ Describe 'New-RegistryEntry' {
     }
 }
 
+Describe 'New-RegistryEntry consumer regex round-trip' {
+    BeforeAll {
+        # The consumer regex used by both Get-KnownToolsFromRegistry (WinSetup.ps1)
+        # and Uninstall-Tool.ps1 (winSetup). Extracted from source to stay in sync.
+        $wsPath = Join-Path $PSScriptRoot '..' 'src' 'Services' 'WinSetup.ps1'
+        $wsContent = Get-Content $wsPath -Raw
+        $regexMatch = [regex]::Match($wsContent, "pattern\s*=\s*'([^']+)'")
+        $script:ConsumerPattern = $regexMatch.Groups[1].Value
+
+        # AllowedPattern for PackageId, extracted from AddTool.ps1
+        $addToolPath = Join-Path $PSScriptRoot '..' 'src' 'Screens' 'AddTool.ps1'
+        $addToolContent = Get-Content $addToolPath -Raw
+        if ($addToolContent -match "Key\s*=\s*'PackageId'[^}]*AllowedPattern\s*=\s*'((?:[^']|'')+)'") {
+            $script:PackageIdPattern = $Matches[1] -replace "''", "'"
+        }
+    }
+
+    It 'consumer regex is extracted from source' {
+        $script:ConsumerPattern | Should -Not -BeNullOrEmpty
+        # Verify it contains the key structural elements of the registry pattern
+        $script:ConsumerPattern | Should -BeLike '*Manager*'
+        $script:ConsumerPattern | Should -BeLike '*Id*'
+    }
+
+    It 'round-trips a simple PackageId correctly' {
+        $entry = New-RegistryEntry -DisplayName 'ruff' -PackageManager 'pipx' -PackageId 'ruff'
+        $m = [regex]::Match($entry, $script:ConsumerPattern)
+        $m.Success | Should -BeTrue
+        $m.Groups[1].Value | Should -Be 'ruff'
+        $m.Groups[2].Value | Should -Be 'pipx'
+        $m.Groups[3].Value | Should -Be 'ruff'
+    }
+
+    It 'round-trips a dotted publisher-prefixed PackageId correctly' {
+        $entry = New-RegistryEntry -DisplayName 'Oh My Posh' -PackageManager 'winget' -PackageId 'JanDeDobbeleer.OhMyPosh'
+        $m = [regex]::Match($entry, $script:ConsumerPattern)
+        $m.Success | Should -BeTrue
+        $m.Groups[3].Value | Should -Be 'JanDeDobbeleer.OhMyPosh'
+    }
+
+    It 'round-trips a hyphenated PackageId correctly' {
+        $entry = New-RegistryEntry -DisplayName 'pre-commit' -PackageManager 'pipx' -PackageId 'pre-commit'
+        $m = [regex]::Match($entry, $script:ConsumerPattern)
+        $m.Success | Should -BeTrue
+        $m.Groups[1].Value | Should -Be 'pre-commit'
+        $m.Groups[3].Value | Should -Be 'pre-commit'
+    }
+
+    It 'double-quote in PackageId breaks the consumer regex' {
+        # New-RegistryEntry escapes " to `" in the generated output.
+        # The consumer regex [^"]+ stops at the backtick-escaped quote,
+        # producing an incorrect parse. This documents the mismatch.
+        $entry = New-RegistryEntry -DisplayName 'test' -PackageManager 'choco' -PackageId 'pkg"inject'
+        $m = [regex]::Match($entry, $script:ConsumerPattern)
+        # The regex either fails to match entirely or matches a truncated Id
+        if ($m.Success) {
+            $m.Groups[3].Value | Should -Not -Be 'pkg"inject' -Because 'the consumer regex cannot parse escaped quotes'
+        } else {
+            $m.Success | Should -BeFalse -Because 'the consumer regex cannot parse escaped quotes'
+        }
+    }
+
+    It 'AllowedPattern for PackageId rejects double quotes' {
+        $script:PackageIdPattern | Should -Not -BeNullOrEmpty
+        # Double quote should be rejected by the pattern
+        'pkg"inject' | Should -Not -Match $script:PackageIdPattern -Because 'double quotes must not pass AllowedPattern'
+    }
+
+    It 'AllowedPattern for PackageId accepts all characters that round-trip correctly' {
+        # Characters that round-trip through New-RegistryEntry and the consumer
+        # regex: alphanumeric, dots, hyphens, underscores, slashes
+        foreach ($id in @('ruff', 'pre-commit', 'junegunn.fzf', 'JanDeDobbeleer.OhMyPosh', 'Vendor/Package')) {
+            $id | Should -Match $script:PackageIdPattern -Because "'$id' should be accepted"
+            $entry = New-RegistryEntry -DisplayName 'test' -PackageManager 'choco' -PackageId $id
+            $m = [regex]::Match($entry, $script:ConsumerPattern)
+            $m.Success | Should -BeTrue -Because "'$id' should round-trip through the consumer regex"
+            $m.Groups[3].Value | Should -Be $id -Because "'$id' should be recovered intact"
+        }
+    }
+}
+
 Describe 'New-ProfileSection' {
     It 'generates a section block with header bars and content' {
         $result = New-ProfileSection -DisplayName 'lazygit' -ProfileContent 'Set-Alias lg lazygit'
