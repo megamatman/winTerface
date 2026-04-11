@@ -380,7 +380,9 @@ function Invoke-WizardConfirm {
                         $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                                     ';' +
                                     [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-                        & $scriptPath -InstallTool $name -JobMode 2>&1
+                        $escaped = $scriptPath -replace "'", "''"
+                        $output = pwsh -NoProfile -NonInteractive -Command "& '$escaped' -InstallTool '$name' -JobMode" 2>&1
+                        $output | ForEach-Object { Write-Output $_ }
                     } catch {
                         Write-Error "Job failed: $_"
                     }

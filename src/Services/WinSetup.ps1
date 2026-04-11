@@ -298,7 +298,9 @@ function Invoke-WinSetupUpdate {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            & $scriptPath -NoWait -JobMode
+            $escaped = $scriptPath -replace "'", "''"
+            $output = pwsh -NoProfile -NonInteractive -Command "& '$escaped' -NoWait -JobMode" 2>&1
+            $output | ForEach-Object { Write-Output $_ }
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
@@ -368,7 +370,9 @@ function Start-NextPackageUpdate {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            & $scriptPath -Package $packageName -NoWait -JobMode
+            $escaped = $scriptPath -replace "'", "''"
+            $output = pwsh -NoProfile -NonInteractive -Command "& '$escaped' -Package '$packageName' -NoWait -JobMode" 2>&1
+            $output | ForEach-Object { Write-Output $_ }
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
@@ -555,8 +559,10 @@ function Invoke-ProfileRedeploy {
     $script:ProfileRedeployJob = Start-Job -ScriptBlock {
         param($scriptPath, $prof)
         try {
-            $global:PROFILE = $prof
-            & $scriptPath 2>&1
+            $escaped = $scriptPath -replace "'", "''"
+            $escapedProf = $prof -replace "'", "''"
+            $output = pwsh -NoProfile -NonInteractive -Command "`$global:PROFILE='$escapedProf'; & '$escaped'" 2>&1
+            $output | ForEach-Object { Write-Output $_ }
         } catch {
             Write-Error "Job failed: $_"
         }

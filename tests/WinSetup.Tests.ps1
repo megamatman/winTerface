@@ -134,12 +134,9 @@ Describe 'VSCODE_OPEN sentinel handling' {
     }
 
     It 'update job invocations pass -NoWait to Update-DevEnvironment.ps1' {
-        # Both full update and per-package jobs should pass -NoWait
-        $noWaitCalls = [regex]::Matches($script:WinSetupSource, '\$scriptPath\s+-NoWait')
-        $noWaitCalls.Count | Should -BeGreaterOrEqual 1
-
-        $packageNoWait = [regex]::Matches($script:WinSetupSource, '-Package.*-NoWait')
-        $packageNoWait.Count | Should -BeGreaterOrEqual 1
+        # Both full update and per-package jobs should pass -NoWait (now inside pwsh -Command strings)
+        $script:WinSetupSource | Should -Match '-NoWait -JobMode'
+        $script:WinSetupSource | Should -Match '-Package.*-NoWait -JobMode'
     }
 
     It 'poll function detects VSCODE_OPEN sentinel and outputs warning message' {
@@ -292,30 +289,56 @@ Describe 'Job output hygiene' {
     }
 }
 
-Describe 'JobMode pass-through' {
+Describe 'Subprocess isolation' {
     BeforeAll {
         $script:WinSetupSrc = Get-Content "$PSScriptRoot\..\src\Services\WinSetup.ps1" -Raw
         $script:ToolsSrc    = Get-Content "$PSScriptRoot\..\src\Screens\Tools.ps1" -Raw
         $script:AddToolSrc  = Get-Content "$PSScriptRoot\..\src\Screens\AddTool.ps1" -Raw
+        $script:ProfileSrc  = Get-Content "$PSScriptRoot\..\src\Screens\Profile.ps1" -Raw
     }
 
-    It 'full update job passes -NoWait and -JobMode' {
-        $script:WinSetupSrc | Should -Match '\$scriptPath\s+-NoWait\s+-JobMode'
+    It 'full update job uses pwsh subprocess with -NoWait -JobMode' {
+        $script:WinSetupSrc | Should -Match 'pwsh -NoProfile -NonInteractive -Command.*-NoWait -JobMode'
     }
 
-    It 'per-package update job passes -NoWait and -JobMode' {
-        $script:WinSetupSrc | Should -Match '-Package\s+\$packageName\s+-NoWait\s+-JobMode'
+    It 'per-package update job uses pwsh subprocess with -JobMode' {
+        $script:WinSetupSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*-Package.*-NoWait -JobMode"
     }
 
-    It 'tool install job passes -JobMode to Setup-DevEnvironment.ps1' {
-        $script:ToolsSrc | Should -Match '-InstallTool\s+\$toolName\s+-JobMode'
+    It 'tool install job uses pwsh subprocess with -JobMode' {
+        $script:ToolsSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*-InstallTool.*-JobMode"
     }
 
-    It 'post-wizard install job passes -JobMode to Setup-DevEnvironment.ps1' {
-        $script:AddToolSrc | Should -Match '-InstallTool\s+\$name\s+-JobMode'
+    It 'tool update job uses pwsh subprocess with -JobMode' {
+        $script:ToolsSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*-Package.*-JobMode"
     }
 
-    It 'tool update job passes -JobMode to Update-DevEnvironment.ps1' {
-        $script:ToolsSrc | Should -Match '-Package\s+\$toolName\s+-JobMode'
+    It 'tool remove job uses pwsh subprocess' {
+        $script:ToolsSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*-Tool"
+    }
+
+    It 'post-wizard install uses pwsh subprocess with -JobMode' {
+        $script:AddToolSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*-InstallTool.*-JobMode"
+    }
+
+    It 'profile redeploy uses pwsh subprocess' {
+        $script:WinSetupSrc | Should -Match "pwsh -NoProfile -NonInteractive -Command.*PROFILE"
+    }
+
+    It 'no direct & $script invocations of winSetup scripts remain in job scriptblocks' {
+        # Check that no Start-Job scriptblock directly invokes a winSetup script
+        # via & $scriptPath or & $setupScript without pwsh subprocess
+        $allSrc = @($script:WinSetupSrc, $script:ToolsSrc, $script:AddToolSrc)
+        foreach ($src in $allSrc) {
+            # Find lines inside Start-Job that invoke scripts with & $ but not via pwsh
+            $jobBlocks = [regex]::Matches($src, '(?ms)Start-Job\s+-ScriptBlock\s*\{(.+?)\}\s*-ArgumentList')
+            foreach ($block in $jobBlocks) {
+                $body = $block.Groups[1].Value
+                $directInvocations = ($body -split "`n") | Where-Object {
+                    $_ -match '^\s*&\s*\$' -and $_ -notmatch 'pwsh' -and $_ -notmatch '^\s*#'
+                }
+                $directInvocations | Should -BeNullOrEmpty
+            }
+        }
     }
 }

@@ -356,7 +356,9 @@ function Invoke-ToolInstallAction {
                 $content = Get-Content $setupScript -Raw
                 $safeName = $toolName -replace '[^a-zA-Z0-9]', ''
                 if ($content -match "function Install-$safeName") {
-                    & $setupScript -InstallTool $toolName -JobMode 2>&1
+                    $escaped = $setupScript -replace "'", "''"
+                    $output = pwsh -NoProfile -NonInteractive -Command "& '$escaped' -InstallTool '$toolName' -JobMode" 2>&1
+                    $output | ForEach-Object { Write-Output $_ }
                     return
                 }
             }
@@ -406,7 +408,9 @@ function Invoke-ToolUpdateAction {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            & $scriptPath -Package $toolName -JobMode 2>&1
+            $escaped = $scriptPath -replace "'", "''"
+            $output = pwsh -NoProfile -NonInteractive -Command "& '$escaped' -Package '$toolName' -JobMode" 2>&1
+            $output | ForEach-Object { Write-Output $_ }
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
@@ -466,8 +470,10 @@ function Invoke-ToolRemoveAction {
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             $env:WINTERFACE = $winterface
-            if ($keep) { & $scriptPath -Tool $toolName -KeepFiles 2>&1 }
-            else       { & $scriptPath -Tool $toolName 2>&1 }
+            $escaped = $scriptPath -replace "'", "''"
+            $keepFlag = if ($keep) { ' -KeepFiles' } else { '' }
+            $output = pwsh -NoProfile -NonInteractive -Command "`$env:WINTERFACE='$winterface'; & '$escaped' -Tool '$toolName'$keepFlag" 2>&1
+            $output | ForEach-Object { Write-Output $_ }
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
