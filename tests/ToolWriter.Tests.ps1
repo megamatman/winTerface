@@ -155,6 +155,183 @@ Describe 'Test-GeneratedCode' {
     }
 }
 
+Describe 'Get-ModifiedSetupContent' {
+    BeforeAll {
+        $script:ToolData = @{
+            DisplayName    = 'newtool'
+            PackageManager = 'choco'
+            PackageId      = 'newtool'
+            VerifyCommand  = 'newtool'
+        }
+
+        # Minimal fixture matching the actual anchor patterns in
+        # Setup-DevEnvironment.ps1: a $CoreSteps declaration, the
+        # "# === ... Main Execution" header, and Write-Summary at column 0.
+        $script:SetupFixture = @'
+$CoreSteps = 18
+
+function Install-Existing {
+    Write-Step "Existing"
+}
+
+# =============================================================================
+# Main Execution
+# =============================================================================
+
+Install-Existing
+
+Write-Summary
+Write-Host "done"
+'@
+    }
+
+    It 'inserts the function definition before the Main Execution header' {
+        $result = Get-ModifiedSetupContent -OriginalContent $script:SetupFixture -ToolData $script:ToolData
+        # The new function should appear before the header
+        $funcIdx = $result.IndexOf('function Install-newtool')
+        $headerIdx = $result.IndexOf('# Main Execution')
+        $funcIdx | Should -BeGreaterThan -1 -Because 'function definition should be inserted'
+        $headerIdx | Should -BeGreaterThan -1
+        $funcIdx | Should -BeLessThan $headerIdx
+    }
+
+    It 'inserts the function call before Write-Summary' {
+        $result = Get-ModifiedSetupContent -OriginalContent $script:SetupFixture -ToolData $script:ToolData
+        $lines = $result -split "`n"
+        $callIdx = -1; $summaryIdx = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^Install-newtool$') { $callIdx = $i }
+            if ($lines[$i] -match '^Write-Summary$') { $summaryIdx = $i }
+        }
+        $callIdx | Should -BeGreaterThan -1 -Because 'function call should be inserted'
+        $summaryIdx | Should -BeGreaterThan -1
+        $callIdx | Should -BeLessThan $summaryIdx
+    }
+
+    It 'increments $CoreSteps by 1' {
+        $result = Get-ModifiedSetupContent -OriginalContent $script:SetupFixture -ToolData $script:ToolData
+        $result | Should -Match '\$CoreSteps\s*=\s*19'
+    }
+
+    It 'preserves content before and after the insertion points' {
+        $result = Get-ModifiedSetupContent -OriginalContent $script:SetupFixture -ToolData $script:ToolData
+        $result | Should -Match 'function Install-Existing'
+        $result | Should -Match 'Install-Existing'
+        $result | Should -Match 'Write-Host "done"'
+    }
+
+    It 'produces valid PowerShell' {
+        $result = Get-ModifiedSetupContent -OriginalContent $script:SetupFixture -ToolData $script:ToolData
+        Test-GeneratedCode -Code $result | Should -BeTrue
+    }
+
+    It 'returns content unchanged when the Main Execution header is absent' {
+        $noAnchor = @'
+$CoreSteps = 18
+function Install-Existing { Write-Step "Existing" }
+Install-Existing
+Write-Summary
+'@
+        $result = Get-ModifiedSetupContent -OriginalContent $noAnchor -ToolData $script:ToolData
+        # Function definition not inserted (no anchor), but call is still
+        # inserted before Write-Summary and $CoreSteps is still incremented.
+        $result | Should -Not -Match 'function Install-newtool'
+        # The call IS inserted because Write-Summary anchor is present
+        $result | Should -Match '(?m)^Install-newtool$'
+    }
+
+    It 'returns content without call when Write-Summary is absent' {
+        $noSummary = @'
+$CoreSteps = 18
+# =============================================================================
+# Main Execution
+# =============================================================================
+Install-Existing
+'@
+        $result = Get-ModifiedSetupContent -OriginalContent $noSummary -ToolData $script:ToolData
+        # Function IS inserted (header anchor present), but call is not
+        $result | Should -Match 'function Install-newtool'
+        $lines = ($result -split "`n") | Where-Object { $_ -match '^Install-newtool$' }
+        $lines | Should -BeNullOrEmpty -Because 'no Write-Summary anchor means no call insertion'
+    }
+}
+
+Describe 'Get-ModifiedUpdateContent' {
+    BeforeAll {
+        $script:ToolData = @{
+            DisplayName    = 'newtool'
+            PackageManager = 'choco'
+            PackageId      = 'newtool'
+        }
+
+        # Minimal fixture matching the actual $PackageRegistry format
+        # in Update-DevEnvironment.ps1.
+        $script:UpdateFixture = @'
+$PackageRegistry = @{
+    "bat"         = @{ Manager = "choco";  Id = "bat" }
+    "ruff"        = @{ Manager = "pipx";   Id = "ruff" }
+    "vscode"      = @{ Manager = "choco";  Id = "vscode" }
+}
+'@
+    }
+
+    It 'inserts a new entry into the registry' {
+        $result = Get-ModifiedUpdateContent -OriginalContent $script:UpdateFixture -ToolData $script:ToolData
+        $result | Should -Match '"newtool"\s*=\s*@\{'
+    }
+
+    It 'inserts in alphabetical order' {
+        $result = Get-ModifiedUpdateContent -OriginalContent $script:UpdateFixture -ToolData $script:ToolData
+        $lines = ($result -split "`n") | Where-Object { $_ -match '^\s+"' }
+        $keys = $lines | ForEach-Object {
+            if ($_ -match '^\s+"([^"]+)"') { $Matches[1] }
+        }
+        # newtool should appear between bat and ruff, or between ruff and vscode
+        $keys | Should -Contain 'newtool'
+        $newtoolIdx = [array]::IndexOf($keys, 'newtool')
+        $ruffIdx = [array]::IndexOf($keys, 'ruff')
+        $newtoolIdx | Should -BeLessThan $ruffIdx -Because '"newtool" < "ruff" alphabetically'
+    }
+
+    It 'preserves all existing entries' {
+        $result = Get-ModifiedUpdateContent -OriginalContent $script:UpdateFixture -ToolData $script:ToolData
+        $result | Should -Match '"bat"'
+        $result | Should -Match '"ruff"'
+        $result | Should -Match '"vscode"'
+    }
+
+    It 'inserts before closing brace when new key sorts after all existing' {
+        # New-RegistryEntry preserves hyphens in the key: "zzz-tool" not "zzztool"
+        $toolData = @{ DisplayName = 'zzz-tool'; PackageManager = 'pipx'; PackageId = 'zzz-tool' }
+        $result = Get-ModifiedUpdateContent -OriginalContent $script:UpdateFixture -ToolData $toolData
+        $result | Should -Match '"zzz-tool"'
+        # Verify it appears before the closing brace
+        $lines = $result -split "`n"
+        $entryIdx = -1; $braceIdx = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '"zzz-tool"') { $entryIdx = $i }
+            if ($lines[$i] -match '^\s*\}') { $braceIdx = $i }
+        }
+        $entryIdx | Should -BeLessThan $braceIdx
+    }
+
+    It 'returns content unchanged when $PackageRegistry is absent' {
+        $noRegistry = @'
+# Some other content
+$SomeVariable = 42
+'@
+        $result = Get-ModifiedUpdateContent -OriginalContent $noRegistry -ToolData $script:ToolData
+        # No insertion point found; content returned as-is with no new entry
+        $result | Should -Not -Match '"newtool"'
+        $result | Should -Match '\$SomeVariable = 42'
+    }
+
+    It 'produces valid PowerShell' {
+        $result = Get-ModifiedUpdateContent -OriginalContent $script:UpdateFixture -ToolData $script:ToolData
+        Test-GeneratedCode -Code $result | Should -BeTrue
+    }
+}
+
 # AllowedPattern validation for the Add Tool guided wizard.
 #
 # These patterns are defined in $script:GuidedSteps in AddTool.ps1 and are the
