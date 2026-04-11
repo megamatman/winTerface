@@ -306,22 +306,18 @@ Write-Host "done"
         Test-GeneratedCode -Code $result | Should -BeTrue
     }
 
-    It 'returns content unchanged when the Main Execution header is absent' {
-        $noAnchor = @'
+    It 'throws when the Main Execution header anchor is absent' {
+        $noHeader = @'
 $CoreSteps = 18
 function Install-Existing { Write-Step "Existing" }
 Install-Existing
 Write-Summary
 '@
-        $result = Get-ModifiedSetupContent -OriginalContent $noAnchor -ToolData $script:ToolData
-        # Function definition not inserted (no anchor), but call is still
-        # inserted before Write-Summary and $CoreSteps is still incremented.
-        $result | Should -Not -Match 'function Install-newtool'
-        # The call IS inserted because Write-Summary anchor is present
-        $result | Should -Match '(?m)^Install-newtool$'
+        { Get-ModifiedSetupContent -OriginalContent $noHeader -ToolData $script:ToolData } |
+            Should -Throw '*Main Execution header*'
     }
 
-    It 'returns content without call when Write-Summary is absent' {
+    It 'throws when the Write-Summary anchor is absent' {
         $noSummary = @'
 $CoreSteps = 18
 # =============================================================================
@@ -329,11 +325,36 @@ $CoreSteps = 18
 # =============================================================================
 Install-Existing
 '@
-        $result = Get-ModifiedSetupContent -OriginalContent $noSummary -ToolData $script:ToolData
-        # Function IS inserted (header anchor present), but call is not
-        $result | Should -Match 'function Install-newtool'
-        $lines = ($result -split "`n") | Where-Object { $_ -match '^Install-newtool$' }
-        $lines | Should -BeNullOrEmpty -Because 'no Write-Summary anchor means no call insertion'
+        { Get-ModifiedSetupContent -OriginalContent $noSummary -ToolData $script:ToolData } |
+            Should -Throw '*Write-Summary*'
+    }
+
+    It 'throws when the $CoreSteps declaration is absent' {
+        $noCoreSteps = @'
+function Install-Existing { Write-Step "Existing" }
+
+# =============================================================================
+# Main Execution
+# =============================================================================
+
+Install-Existing
+
+Write-Summary
+'@
+        { Get-ModifiedSetupContent -OriginalContent $noCoreSteps -ToolData $script:ToolData } |
+            Should -Throw '*CoreSteps*'
+    }
+
+    It 'error message names all missing anchors when multiple are absent' {
+        $empty = 'Write-Host "nothing here"'
+        try {
+            Get-ModifiedSetupContent -OriginalContent $empty -ToolData $script:ToolData
+            $true | Should -BeFalse -Because 'should have thrown'
+        } catch {
+            $_.Exception.Message | Should -Match 'CoreSteps'
+            $_.Exception.Message | Should -Match 'Main Execution'
+            $_.Exception.Message | Should -Match 'Write-Summary'
+        }
     }
 }
 
@@ -396,15 +417,13 @@ $PackageRegistry = @{
         $entryIdx | Should -BeLessThan $braceIdx
     }
 
-    It 'returns content unchanged when $PackageRegistry is absent' {
+    It 'throws when $PackageRegistry is absent' {
         $noRegistry = @'
 # Some other content
 $SomeVariable = 42
 '@
-        $result = Get-ModifiedUpdateContent -OriginalContent $noRegistry -ToolData $script:ToolData
-        # No insertion point found; content returned as-is with no new entry
-        $result | Should -Not -Match '"newtool"'
-        $result | Should -Match '\$SomeVariable = 42'
+        { Get-ModifiedUpdateContent -OriginalContent $noRegistry -ToolData $script:ToolData } |
+            Should -Throw '*PackageRegistry*'
     }
 
     It 'produces valid PowerShell' {

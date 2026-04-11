@@ -113,6 +113,18 @@ PyPI search uses `Invoke-RestMethod` and requires internet access.
 
 **Fix:** Wait a moment, or move the highlight away and back to retrigger the fetch.
 
+### Wizard reports "anchor not found" or "file structure may have changed"
+
+**Cause:** The anchor patterns used to locate insertion points in winSetup's Setup-DevEnvironment.ps1 or Update-DevEnvironment.ps1 have changed. This typically happens after a winSetup update that restructures the files.
+
+**Fix:** Pull the latest winSetup and re-run the setup script:
+```powershell
+cd $env:WINSETUP
+git pull
+.\Setup-DevEnvironment.ps1
+```
+If the error persists, raise an issue on the winTerface repository with the exact error message.
+
 ### PyPI search only finds exact matches
 
 **Cause:** PyPI does not provide a public fuzzy search API. The search queries the exact package name and common variations (`python-<term>`, `py<term>`, `<term>-cli`).

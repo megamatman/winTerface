@@ -228,6 +228,16 @@ function Get-ModifiedSetupContent {
         $result.Add($line)
     }
 
+    # Validate that all anchors were found. A partial insertion produces
+    # content that is syntactically valid but fails at runtime.
+    if (-not $stepsIncremented -or -not $funcInserted -or -not $callInserted) {
+        $missing = @()
+        if (-not $stepsIncremented) { $missing += '$CoreSteps declaration' }
+        if (-not $funcInserted)     { $missing += 'Main Execution header' }
+        if (-not $callInserted)     { $missing += 'Write-Summary line' }
+        throw "Anchor not found in Setup-DevEnvironment.ps1: $($missing -join ', '). The file structure may have changed."
+    }
+
     return ($result -join "`n")
 }
 
@@ -280,6 +290,11 @@ function Get-ModifiedUpdateContent {
         }
 
         $result.Add($line)
+    }
+
+    # Validate that the registry was found and the entry was inserted.
+    if (-not $inserted) {
+        throw 'Anchor not found in Update-DevEnvironment.ps1: $PackageRegistry declaration. The file structure may have changed.'
     }
 
     return ($result -join "`n")
