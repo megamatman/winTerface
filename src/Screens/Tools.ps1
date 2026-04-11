@@ -349,7 +349,6 @@ function Invoke-ToolInstallAction {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            Write-Host "[job] PATH refreshed. choco: $(if (Get-Command choco -EA SilentlyContinue) { 'found' } else { 'NOT FOUND' })"
 
             # Try -InstallTool first (works for tools with an Install-* function)
             $setupScript = Join-Path $winsetup 'Setup-DevEnvironment.ps1'
@@ -357,27 +356,22 @@ function Invoke-ToolInstallAction {
                 $content = Get-Content $setupScript -Raw
                 $safeName = $toolName -replace '[^a-zA-Z0-9]', ''
                 if ($content -match "function Install-$safeName") {
-                    Write-Host "[job] Running: & '$setupScript' -InstallTool '$toolName'"
                     & $setupScript -InstallTool $toolName 2>&1
-                    Write-Host "[job] Exit code: $LASTEXITCODE"
                     return
                 }
             }
 
             # Fallback: install directly via package manager
-            Write-Host "[job] No Install-$toolName function. Installing via $mgr directly."
             switch ($mgr) {
-                'choco'  { Write-Host "[job] Running: choco install $cmd -y"; choco install $cmd -y 2>&1 }
+                'choco'  { choco install $cmd -y 2>&1 }
                 'winget' {
-                    Write-Host "[job] Running: winget install $cmd"
                     winget install $cmd --silent --disable-interactivity --accept-package-agreements --accept-source-agreements 2>&1 |
                         Where-Object { "$_" -notmatch '^\s*[-\\|/]+\s*$' -and "$_" -notmatch '^\s*$' }
                 }
-                'pipx'   { Write-Host "[job] Running: pipx install $cmd"; pipx install $cmd 2>&1 }
-                'pip'    { Write-Host "[job] Running: pip install --user $cmd"; pip install --user $cmd 2>&1 }
-                default  { Write-Host "[job] No install handler for manager: $mgr"; return }
+                'pipx'   { pipx install $cmd 2>&1 }
+                'pip'    { pip install --user $cmd 2>&1 }
+                default  { return }
             }
-            Write-Host "[job] Exit code: $LASTEXITCODE"
             # winget returns -1978335189 (0x8A15002B) when the package is
             # already installed or no update is available. This is a success.
             if ($LASTEXITCODE -eq 0) { Write-Host "$toolName installed." }
@@ -412,9 +406,7 @@ function Invoke-ToolUpdateAction {
             $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            Write-Host "[job] Running: & '$scriptPath' -Package '$toolName'"
             & $scriptPath -Package $toolName 2>&1
-            Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }
@@ -474,11 +466,8 @@ function Invoke-ToolRemoveAction {
                         ';' +
                         [System.Environment]::GetEnvironmentVariable('PATH', 'User')
             $env:WINTERFACE = $winterface
-            $mode = if ($keep) { '-KeepFiles' } else { 'full' }
-            Write-Host "[job] Running: & '$scriptPath' -Tool '$toolName' $mode"
             if ($keep) { & $scriptPath -Tool $toolName -KeepFiles 2>&1 }
             else       { & $scriptPath -Tool $toolName 2>&1 }
-            Write-Host "[job] Exit code: $LASTEXITCODE"
         } catch {
             Write-Error "[job] Failed: $_ $($_.ScriptStackTrace)"
         }

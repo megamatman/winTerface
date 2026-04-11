@@ -262,7 +262,7 @@ function Invoke-UpdateRunPoll {
     # Receive incremental output
     $vsCodeOpen = $false
     try {
-        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1) 6>$null
         foreach ($line in $newOutput) {
             if ($null -ne $line) {
                 $text = "$line"
@@ -347,7 +347,7 @@ function Invoke-DescriptionPoll {
     $jobState = try { $job.State } catch { 'Failed' }
     if ($jobState -ne 'Running') {
         $desc = ''
-        try { $desc = @(Receive-Job $job -ErrorAction SilentlyContinue) | Select-Object -First 1 } catch {}
+        try { $desc = @(Receive-Job $job -ErrorAction SilentlyContinue) 6>$null | Select-Object -First 1 } catch {}
         try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
         $script:DescriptionJob = $null
 
@@ -383,7 +383,7 @@ function Invoke-ProfileRedeployPoll {
     $job = $script:ProfileRedeployJob
 
     try {
-        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1) 6>$null
         foreach ($line in $newOutput) {
             if ($null -ne $line) {
                 $script:ProfileRedeployOutput += "$line`n"
@@ -431,7 +431,7 @@ function Invoke-InventoryPoll {
     $jobState = try { $job.State } catch { 'Failed' }
     if ($jobState -ne 'Running') {
         try {
-            $script:ToolInventoryData = @(Receive-Job $job -ErrorAction Stop)
+            $script:ToolInventoryData = @(Receive-Job $job -ErrorAction Stop) 6>$null
         } catch {}
         try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch {}
         $script:ToolInventoryJob = $null
@@ -454,7 +454,7 @@ function Invoke-ToolActionPoll {
 
     $job = $script:ToolActionJob
     try {
-        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1)
+        $newOutput = @(Receive-Job $job -ErrorAction SilentlyContinue 2>&1) 6>$null
         foreach ($line in $newOutput) {
             if ($null -ne $line) { Add-ToolsOutput -Text "$line" }
         }

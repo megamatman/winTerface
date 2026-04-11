@@ -178,7 +178,7 @@ function Update-SearchJobStatus {
 
     if ($script:ChocoSearchJob) {
         if ($script:ChocoSearchJob.State -ne 'Running') {
-            try { $script:ChocoSearchResults = @(Receive-Job $script:ChocoSearchJob -ErrorAction SilentlyContinue) }
+            try { $script:ChocoSearchResults = @(Receive-Job $script:ChocoSearchJob -ErrorAction SilentlyContinue) 6>$null }
             catch { $script:ChocoSearchResults = @() }
             try { Remove-Job $script:ChocoSearchJob -Force } catch {}
             $script:ChocoSearchJob = $null
@@ -187,7 +187,7 @@ function Update-SearchJobStatus {
 
     if ($script:WingetSearchJob) {
         if ($script:WingetSearchJob.State -ne 'Running') {
-            try { $script:WingetSearchResults = @(Receive-Job $script:WingetSearchJob -ErrorAction SilentlyContinue) }
+            try { $script:WingetSearchResults = @(Receive-Job $script:WingetSearchJob -ErrorAction SilentlyContinue) 6>$null }
             catch { $script:WingetSearchResults = @() }
             try { Remove-Job $script:WingetSearchJob -Force } catch {}
             $script:WingetSearchJob = $null
@@ -196,7 +196,7 @@ function Update-SearchJobStatus {
 
     if ($script:PyPISearchJob) {
         if ($script:PyPISearchJob.State -ne 'Running') {
-            try { $script:PyPISearchResults = @(Receive-Job $script:PyPISearchJob -ErrorAction SilentlyContinue) }
+            try { $script:PyPISearchResults = @(Receive-Job $script:PyPISearchJob -ErrorAction SilentlyContinue) 6>$null }
             catch { $script:PyPISearchResults = @() }
             try { Remove-Job $script:PyPISearchJob -Force } catch {}
             $script:PyPISearchJob = $null

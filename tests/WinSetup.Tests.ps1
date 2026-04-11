@@ -266,3 +266,28 @@ Describe 'UI polish' {
         $script:ConfigSource | Should -Not -Match "FrameView\]::new\(`"Content`"\)"
     }
 }
+
+Describe 'Job output hygiene' {
+    BeforeAll {
+        $script:SrcFiles = Get-ChildItem "$PSScriptRoot\..\src" -Recurse -Filter '*.ps1' |
+            ForEach-Object { @{ Path = $_.FullName; Content = (Get-Content $_.FullName -Raw) } }
+    }
+
+    It 'no [job] prefixed Write-Host calls exist in source files' {
+        foreach ($f in $script:SrcFiles) {
+            $jobLines = ($f.Content -split "`n") |
+                Where-Object { $_ -match 'Write-Host.*\[job\]' }
+            $jobLines | Should -BeNullOrEmpty -Because "$($f.Path) should not have [job] Write-Host lines"
+        }
+    }
+
+    It 'all Receive-Job calls include 6>$null' {
+        foreach ($f in $script:SrcFiles) {
+            $receiveLines = ($f.Content -split "`n") |
+                Where-Object { $_ -match 'Receive-Job' -and $_ -notmatch '^\s*#' }
+            foreach ($line in $receiveLines) {
+                $line | Should -Match '6>\$null' -Because "Receive-Job in $($f.Path) must suppress stream 6"
+            }
+        }
+    }
+}

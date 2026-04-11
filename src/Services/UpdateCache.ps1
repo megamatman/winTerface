@@ -292,7 +292,7 @@ function Update-BackgroundCheckStatus {
     if ($jobState -eq 'Completed') {
         $updateCount = 0
         try {
-            $result = Receive-Job $job -ErrorAction Stop
+            $result = Receive-Job $job -ErrorAction Stop 6>$null
             if ($result -and $result.lastChecked) {
                 Set-UpdateCache -Data $result
                 $updateCount = @($result.updates | Where-Object {

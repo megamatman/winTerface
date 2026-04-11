@@ -380,9 +380,7 @@ function Invoke-WizardConfirm {
                         $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') +
                                     ';' +
                                     [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-                        Write-Host "[job] Running: & '$scriptPath' -InstallTool '$name'"
                         & $scriptPath -InstallTool $name 2>&1
-                        Write-Host "[job] Exit code: $LASTEXITCODE"
                     } catch {
                         Write-Error "Job failed: $_"
                     }
