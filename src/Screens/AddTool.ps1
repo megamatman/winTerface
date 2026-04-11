@@ -398,7 +398,9 @@ function Invoke-WizardConfirm {
         $lbl = [Terminal.Gui.Label]::new(" $($result.Error)")
         $lbl.X = 1; $lbl.Y = 1; $lbl.Width = [Terminal.Gui.Dim]::Fill(1)
         $dialog.Add($lbl)
-        [Terminal.Gui.Application]::Run($dialog)
+        $script:UpdateFlowActive = $true
+        try { [Terminal.Gui.Application]::Run($dialog) }
+        finally { $script:UpdateFlowActive = $false }
     }
 }
 

@@ -554,5 +554,7 @@ function Show-ConfigMessage {
 
     $okBtn.add_Clicked({ [Terminal.Gui.Application]::RequestStop() })
 
+    $script:UpdateFlowActive = $true
     try { [Terminal.Gui.Application]::Run($dialog) } catch {}
+    finally { $script:UpdateFlowActive = $false }
 }

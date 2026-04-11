@@ -235,7 +235,9 @@ function Show-HelpOverlay {
         $y++
     }
 
-    [Terminal.Gui.Application]::Run($dialog)
+    $script:UpdateFlowActive = $true
+    try { [Terminal.Gui.Application]::Run($dialog) }
+    finally { $script:UpdateFlowActive = $false }
 }
 
 # ---------------------------------------------------------------------------
