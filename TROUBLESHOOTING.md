@@ -73,6 +73,12 @@ cd path\to\winSetup
 
 **Fix:** Use `F6` instead. Function keys are not intercepted by terminal drivers or PSReadLine.
 
+### Updates screen shows a parse error or no updates on a non-English Windows locale
+
+**Cause:** winget outputs localised column headers on non-English locales. winTerface cannot parse these and reports a failure rather than silently showing no updates.
+
+**Fix:** There is no workaround for non-English locales currently. Raise an issue on the winTerface repository with your locale and the winget output from running `winget upgrade` in your terminal.
+
 ## Tools screen
 
 ### A tool shows "not found" despite being installed

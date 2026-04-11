@@ -254,49 +254,8 @@ Describe 'Get-WingetUpdates' {
         $result.Count | Should -Be 0
     }
 
-    It 'returns empty array when headers are in a non-English locale' {
+    It 'surfaces a warning when headers are in a non-English locale' {
         # French locale: winget uses "Nom", "Identifiant", "Version", "Disponible"
-        Mock Get-Command { [PSCustomObject]@{ Source = 'winget.exe' } } -ParameterFilter { $Name -eq 'winget' }
-        Mock winget {
-            @(
-                'Nom                             Identifiant                       Version      Disponible   Source'
-                '------------------------------------------------------------------------------------------------------'
-                'Mozilla Firefox                 Mozilla.Firefox                   125.0.1      126.0        winget'
-            )
-        } -ParameterFilter { $args[0] -eq 'upgrade' }
-        $global:LASTEXITCODE = 0
-
-        $result = Get-WingetUpdates
-
-        # The parser looks for English header names: Id, Version, Available.
-        # "Identifiant" does not contain "Id" at the expected position;
-        # "Disponible" does not match "Available". The function returns empty.
-        $result.Count | Should -Be 0
-    }
-
-    It 'returns empty array when German locale headers are used' {
-        # German locale: "Name", "ID", "Version", "Verfuegbar"
-        Mock Get-Command { [PSCustomObject]@{ Source = 'winget.exe' } } -ParameterFilter { $Name -eq 'winget' }
-        Mock winget {
-            @(
-                'Name                            ID                                Version      Verfuegbar   Quelle'
-                '------------------------------------------------------------------------------------------------------'
-                'Oh My Posh                      JanDeDobbeleer.OhMyPosh           19.21.0      19.22.1      winget'
-            )
-        } -ParameterFilter { $args[0] -eq 'upgrade' }
-        $global:LASTEXITCODE = 0
-
-        $result = Get-WingetUpdates
-
-        # "ID" matches IndexOf('Id') because IndexOf is case-sensitive and
-        # "ID" does not equal "Id". "Available" is "Verfuegbar" which does not
-        # match. The function returns empty.
-        $result.Count | Should -Be 0
-    }
-
-    It 'does not throw or warn when locale headers cause empty result' {
-        # Confirm the failure is completely silent: no warning, no error,
-        # no user feedback. The user sees an empty update list.
         Mock Get-Command { [PSCustomObject]@{ Source = 'winget.exe' } } -ParameterFilter { $Name -eq 'winget' }
         Mock winget {
             @(
@@ -310,10 +269,70 @@ Describe 'Get-WingetUpdates' {
 
         $result = Get-WingetUpdates
 
+        # "Identifiant" does not contain "Id" even case-insensitively;
+        # "Disponible" does not match "Available". The function returns empty
+        # and emits a warning so the failure is not silent.
         $result.Count | Should -Be 0
-        # No Write-Warning is called for the missing-header fallback path.
-        # (Write-Warning is only called if the outer try/catch fires.)
-        Should -Invoke Write-Warning -Times 0
+        Should -Invoke Write-Warning -Times 1
+    }
+
+    It 'surfaces a warning when German locale headers lack Available' {
+        # German locale: "Name", "ID", "Version", "Verfuegbar"
+        # "ID" now matches "Id" case-insensitively, and "Version" matches,
+        # but "Verfuegbar" does not match "Available".
+        Mock Get-Command { [PSCustomObject]@{ Source = 'winget.exe' } } -ParameterFilter { $Name -eq 'winget' }
+        Mock winget {
+            @(
+                'Name                            ID                                Version      Verfuegbar   Quelle'
+                '------------------------------------------------------------------------------------------------------'
+                'Oh My Posh                      JanDeDobbeleer.OhMyPosh           19.21.0      19.22.1      winget'
+            )
+        } -ParameterFilter { $args[0] -eq 'upgrade' }
+        $global:LASTEXITCODE = 0
+        Mock Write-Warning {}
+
+        $result = Get-WingetUpdates
+
+        $result.Count | Should -Be 0
+        Should -Invoke Write-Warning -Times 1
+    }
+
+    It 'parses correctly when headers use uppercase casing (ID, AVAILABLE)' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'winget.exe' } } -ParameterFilter { $Name -eq 'winget' }
+        Mock winget {
+            @(
+                'Name                            ID                                Version      Available    Source'
+                '------------------------------------------------------------------------------------------------------'
+                'Oh My Posh                      JanDeDobbeleer.OhMyPosh           19.21.0      19.22.1      winget'
+            )
+        } -ParameterFilter { $args[0] -eq 'upgrade' }
+        $global:LASTEXITCODE = 0
+
+        $result = @(Get-WingetUpdates)
+
+        $result.Count | Should -Be 1
+        $result[0].PackageId | Should -Be 'JanDeDobbeleer.OhMyPosh'
+        $result[0].CurrentVersion | Should -Be '19.21.0'
+        $result[0].AvailableVersion | Should -Be '19.22.1'
+    }
+
+    It 'warning message includes the header line for diagnosis' {
+        Mock Get-Command { [PSCustomObject]@{ Source = 'winget.exe' } } -ParameterFilter { $Name -eq 'winget' }
+        Mock winget {
+            @(
+                'Nom                             Identifiant                       Version      Disponible   Source'
+                '------------------------------------------------------------------------------------------------------'
+                'Mozilla Firefox                 Mozilla.Firefox                   125.0.1      126.0        winget'
+            )
+        } -ParameterFilter { $args[0] -eq 'upgrade' }
+        $global:LASTEXITCODE = 0
+        $script:_warningMsg = $null
+        Mock Write-Warning { $script:_warningMsg = $Message }
+
+        $null = Get-WingetUpdates
+
+        $script:_warningMsg | Should -Match 'Nom'
+        $script:_warningMsg | Should -Match 'column headers'
     }
 
     It 'parses correctly when locale matches English headers' {

@@ -67,7 +67,7 @@ Released: 2026-04-10
 
 ## Tests
 
-250 Pester v5 tests across 8 files (up from 107 at v1.0.0):
+251 Pester v5 tests across 8 files (up from 107 at v1.0.0):
 
 | File | Tests | Coverage |
 |------|------:|---------|

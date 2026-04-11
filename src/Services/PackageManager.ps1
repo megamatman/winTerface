@@ -109,14 +109,20 @@ function Get-WingetUpdates {
 
         $header = $lines[$dashIdx - 1]
 
-        # Detect column start positions from the header text
-        $colId        = $header.IndexOf('Id')
-        $colVersion   = $header.IndexOf('Version')
-        $colAvailable = $header.IndexOf('Available')
-        $colSource    = $header.IndexOf('Source')
+        # Detect column start positions from the header text (case-insensitive
+        # to handle winget versions that emit "ID" or "AVAILABLE")
+        $colId        = $header.IndexOf('Id', [System.StringComparison]::OrdinalIgnoreCase)
+        $colVersion   = $header.IndexOf('Version', [System.StringComparison]::OrdinalIgnoreCase)
+        $colAvailable = $header.IndexOf('Available', [System.StringComparison]::OrdinalIgnoreCase)
+        $colSource    = $header.IndexOf('Source', [System.StringComparison]::OrdinalIgnoreCase)
 
-        # If any critical column is missing, abort
-        if ($colId -lt 0 -or $colVersion -lt 0 -or $colAvailable -lt 0) { return @() }
+        # If any critical column is missing, surface the failure rather than
+        # returning an empty array that the user cannot distinguish from
+        # "no updates available".
+        if ($colId -lt 0 -or $colVersion -lt 0 -or $colAvailable -lt 0) {
+            Write-Warning "Could not parse winget output: expected column headers (Id, Version, Available) not found. Header was: $header"
+            return @()
+        }
 
         $results = @()
         for ($i = $dashIdx + 1; $i -lt $lines.Count; $i++) {
