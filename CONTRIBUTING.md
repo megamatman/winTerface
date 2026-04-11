@@ -8,9 +8,11 @@ must be followed to avoid crashes:
 - **Never call Write-Host inside a callback, event handler, or timer handler.**
   Write-Host corrupts Terminal.Gui's console driver. Use job return
   values or `$script:` variables to pass data back to the UI.
-  Write-Host inside `Start-Job` scriptblocks is acceptable because jobs
-  run in a separate process; their output is streamed to the TUI
-  through `Receive-Job`.
+  Write-Host inside `Start-Job` scriptblocks still leaks to the console
+  via the information stream when `Receive-Job` is called. All winSetup
+  script invocations inside jobs must use subprocess isolation
+  (`pwsh -NoProfile -NonInteractive -Command`) to prevent bleed.
+  See the critical constraints in CLAUDE.md for the pattern.
 
 - **Never call Switch-Screen from a key event handler.**
   This destroys the view that owns the event mid-dispatch. Trigger
