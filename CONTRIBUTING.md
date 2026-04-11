@@ -329,6 +329,16 @@ Add a status label for the new source in the "Searching..." screen.
   `PSShowComputerName` into deserialized objects. Strip these before
   writing to disk.
 
+## Release process
+
+1. Run `.\New-Checksums.ps1` in both the winSetup and winTerface repos.
+2. Commit `checksums.sha256` before tagging.
+3. Tag the release: `git tag -a v<version> -m "v<version>"`
+4. Push the tag: `git push origin v<version>`
+5. Create the GitHub release, attaching `checksums.sha256` as a release asset:
+   `gh release create v<version> --title "v<version>" --notes-file RELEASE-NOTES.md --attach checksums.sha256`
+6. Update the bootstrap URL in `README.md` and `bootstrap.ps1` to point to the new release tag.
+
 ## Code style
 
 - Use `$script:` scope for anything referenced from .NET event handlers.

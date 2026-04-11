@@ -8,6 +8,16 @@ Terminal UI for managing a Windows 11 development environment configured by [win
 
 ![winTerface home screen](docs/winterface-home-screen.png)
 
+## Quick start
+
+Requires [winSetup](https://github.com/megamatman/winSetup) installed first. Then open PowerShell 7 and run:
+
+```powershell
+irm "https://raw.githubusercontent.com/megamatman/winTerface/refs/tags/v1.1.0/bootstrap.ps1" | iex
+```
+
+The script prompts before taking any action and runs without admin rights. [Review the script](https://github.com/megamatman/winTerface/blob/main/bootstrap.ps1) before running. For the manual path, see [Requirements](#requirements) below.
+
 ## Requirements
 
 - Windows 11
