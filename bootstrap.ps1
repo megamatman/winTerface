@@ -9,7 +9,7 @@
     Runs without admin rights.
 
     Usage:
-      irm "https://raw.githubusercontent.com/megamatman/winTerface/refs/tags/v1.1.0/bootstrap.ps1" | iex
+      irm "https://raw.githubusercontent.com/megamatman/winTerface/refs/tags/v1.2.0/bootstrap.ps1" | iex
 
     Or clone the repo first and run:
       .\bootstrap.ps1
@@ -90,7 +90,7 @@ Write-Host "[2/5] winSetup" -ForegroundColor Cyan
 if (-not $env:WINSETUP -or -not (Test-Path $env:WINSETUP)) {
     Write-Host "  winSetup is not installed." -ForegroundColor Red
     Write-Host "  winTerface requires winSetup. Install it first:" -ForegroundColor Yellow
-    Write-Host '    irm "https://raw.githubusercontent.com/megamatman/winSetup/refs/tags/v1.1.0/bootstrap.ps1" | iex' -ForegroundColor Yellow
+    Write-Host '    irm "https://raw.githubusercontent.com/megamatman/winSetup/refs/tags/v1.2.0/bootstrap.ps1" | iex' -ForegroundColor Yellow
     Write-Host "  Then re-run this script." -ForegroundColor Yellow
     exit 1
 }
