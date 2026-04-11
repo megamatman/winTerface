@@ -290,7 +290,7 @@ function Add-UpdatesHintBar {
     )
 
     $hints = [Terminal.Gui.Label]::new(
-        "  [Space] Toggle  [A] All  [U] Update  [F6] Update all  [F5] Check  [Esc] Back")
+        "  [Space] Toggle  [A] All  [U] Update  [F5] Check  [F6] Update all  [Esc] Back")
     $hints.X = 0; $hints.Y = $Y
     $hints.Width = [Terminal.Gui.Dim]::Fill()
     if ($script:Colors.StatusWarn) { $hints.ColorScheme = $script:Colors.StatusWarn }
@@ -313,6 +313,25 @@ function Build-UpdatesScreen {
     )
 
     Add-UpdatesHeader -Container $Container
+
+    # Auto-trigger background check if last check was over 60 minutes ago
+    $autoCache = Get-UpdateCache
+    if (-not $autoCache -or -not $autoCache.lastChecked) {
+        Start-BackgroundUpdateCheck -Force
+    } else {
+        try {
+            $lastCheck = if ($autoCache.lastChecked -is [DateTime]) {
+                $autoCache.lastChecked
+            } else {
+                [DateTimeOffset]::Parse($autoCache.lastChecked).LocalDateTime
+            }
+            if (((Get-Date) - $lastCheck).TotalMinutes -ge 60) {
+                Start-BackgroundUpdateCheck -Force
+            }
+        } catch {
+            Start-BackgroundUpdateCheck -Force
+        }
+    }
 
     # Load cached updates; filter to tools with a known available version
     $cache   = Get-UpdateCache

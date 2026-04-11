@@ -155,7 +155,7 @@ function Add-ToolsDetailPanel {
     $detailView.Width  = [Terminal.Gui.Dim]::Fill()
     $detailView.Height = [Terminal.Gui.Dim]::Fill()
     $detailView.ReadOnly = $true
-    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
+    if ($script:Colors.OutputPane) { $detailView.ColorScheme = $script:Colors.OutputPane }
     $rightFrame.Add($detailView)
     $script:_ToolDetailView = $detailView
 

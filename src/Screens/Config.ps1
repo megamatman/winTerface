@@ -124,7 +124,7 @@ function Add-ConfigDetailPanel {
     #>
     param($Container)
 
-    $rightFrame = [Terminal.Gui.FrameView]::new("Content")
+    $rightFrame = [Terminal.Gui.FrameView]::new("Detail")
     $rightFrame.X = [Terminal.Gui.Pos]::Percent(25); $rightFrame.Y = 2
     $rightFrame.Width  = [Terminal.Gui.Dim]::Fill()
     $rightFrame.Height = [Terminal.Gui.Dim]::Fill(2)
@@ -135,7 +135,7 @@ function Add-ConfigDetailPanel {
     $detailView.Width  = [Terminal.Gui.Dim]::Fill()
     $detailView.Height = [Terminal.Gui.Dim]::Fill()
     $detailView.ReadOnly = $true
-    if ($script:Colors.Base) { $detailView.ColorScheme = $script:Colors.Base }
+    if ($script:Colors.OutputPane) { $detailView.ColorScheme = $script:Colors.OutputPane }
 
     $rightFrame.Add($detailView)
     $Container.Add($rightFrame)

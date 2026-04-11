@@ -352,7 +352,7 @@ function Add-HomeFooter {
         $quoteView.WordWrap = $true
         $quoteView.CanFocus = $false
         $quoteView.Text = "  $quote"
-        if ($script:Colors.Base) { $quoteView.ColorScheme = $script:Colors.Base }
+        if ($script:Colors.OutputPane) { $quoteView.ColorScheme = $script:Colors.OutputPane }
         $Container.Add($quoteView)
     }
 

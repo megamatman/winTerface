@@ -234,3 +234,35 @@ Set-Alias wti Invoke-WinTerface
         }
     }
 }
+
+Describe 'UI polish' {
+    BeforeAll {
+        $script:UpdatesSource = Get-Content "$PSScriptRoot\..\src\Screens\Updates.ps1" -Raw
+        $script:ConfigSource  = Get-Content "$PSScriptRoot\..\src\Screens\Config.ps1" -Raw
+    }
+
+    It 'Updates screen triggers background check when last check was over 60 minutes ago' {
+        $script:UpdatesSource | Should -Match 'TotalMinutes.*-ge\s*60'
+        $script:UpdatesSource | Should -Match 'Start-BackgroundUpdateCheck\s+-Force'
+    }
+
+    It 'Updates screen does not duplicate staleness logic' {
+        # Should parse lastChecked directly, not call Test-UpdateCheckNeeded
+        # (which uses the configurable interval, not the 60-minute threshold)
+        $script:UpdatesSource | Should -Match 'Get-UpdateCache'
+        $script:UpdatesSource | Should -Match 'lastChecked'
+    }
+
+    It 'Updates hint bar has F5 before F6' {
+        $hintMatch = [regex]::Match($script:UpdatesSource, '\[F5\].*\[F6\]')
+        $hintMatch.Success | Should -BeTrue
+        # F6 should NOT appear before F5 in any hint string
+        $badOrder = [regex]::Match($script:UpdatesSource, '\[F6\].*\[F5\].*\[Esc\]')
+        $badOrder.Success | Should -BeFalse
+    }
+
+    It 'Config screen detail pane is labelled Detail not Content' {
+        $script:ConfigSource | Should -Match "FrameView\]::new\(`"Detail`"\)"
+        $script:ConfigSource | Should -Not -Match "FrameView\]::new\(`"Content`"\)"
+    }
+}
